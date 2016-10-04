@@ -515,8 +515,8 @@ void clkCalled()
 {
   clockChange = micros();                 // Save the current clock change time
   intervalTimer = (clockChange - lastChange); // Determine interval since last clock change
-  if (intervalTimer > NEW_WORD_INTV) newWord = true;
-  else 
+  //if (intervalTimer > NEW_WORD_INTV) newWord = true;
+  //else newWord = false;
   lastChange = clockChange;               // Re-save the current change time as last change time
 
   if (digitalRead(CLK)) {                 // If clock line is going HIGH, this is PANEL data
