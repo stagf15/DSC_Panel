@@ -33,17 +33,18 @@
 #include <TextBuffer.h>
 #include <TimeLib.h>
 
-#define CLK 3       // Keybus Yellow (Clock Line)
-#define DTA_IN 4    // Keybus Green (Data Line via V divider)
-#define DTA_OUT 8   // Keybus Green Output (Data Line through driver)
-#define LED_PIN 13  // LED pin on the arduino
+// ----- Input/Output Pins -----
+const byte CLK      = 3;    // Keybus Yellow (Clock Line)
+const byte DTA_IN   = 4;    // Keybus Green (Data Line via V divider)
+const byte DTA_OUT  = 8;    // Keybus Green Output (Data Line through driver)
+const byte LED_PIN  = 13;   // LED pin on the arduino
 
-const char hex[] = "0123456789abcdef";
+const char hex[] = "0123456789abcdef";  // HEX alphanumerics look-up array
 // ----- KEYPAD BUTTON VALUES -----
 const byte kOut   = 0xff;   // 11111111 Usual 1st byte from keypad
 const byte k_ff   = 0xff;   // 11111111 Keypad CRC checksum 1?
 const byte k_7f   = 0x7f;   // 01111111 Keypad CRC checksum 2?
-// The following buttons data are in the 2nd byte
+// The following buttons data are in the 2nd byte:
 const byte one    = 0x82;   // 10000010
 const byte two    = 0x85;   // 10000101
 const byte three  = 0x87;   // 10000111
@@ -63,24 +64,23 @@ const byte reset  = 0xed;   // 11101101
 const byte kExit  = 0xf0;   // 11110000
 const byte lArrow = 0xfb;   // 11111011
 const byte rArrow = 0xf7;   // 11110111
-// -------
-// The following buttons data are in the 1st byte, and these 
+// The following button's data are in the 1st byte, and these 
 //   seem to be sent twice, with a panel response in between:
 const byte fire   = 0xbb;   // 10111011 
 const byte aux    = 0xdd;   // 11011101 
 const byte panic  = 0xef;   // 11101110 
-// --------
-
+// ----- Other Constants -----
 const byte MAX_BITS = 200;        // Max of 254
 const int NEW_WORD_INTV = 1500;   // New word indicator interval in us (Microseconds)
-
+// ----- Keybus Word String Vars -----
 String pBuild="", pWord="", oldPWord="";
 String kBuild="", kWord="", oldKWord="";
-
+// ----- Byte Array Variables -----
 const byte ARR_SIZE = 14;         // Max of 254           // NOT USED
 byte pBytes[ARR_SIZE] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0};    // NOT USED
 byte kBytes[ARR_SIZE] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0};    // NOT USED
-
+// ----- Time Variables -----
+time_t t = now();                           // Initialize time (TimeLib.h)
 unsigned long lastStatus = 0;
 unsigned long lastData = 0;
 // Volatile variables, modified within ISR
@@ -90,23 +90,20 @@ volatile unsigned long lastChange = 0;
 volatile unsigned long lastRise = 0;        // NOT USED
 volatile unsigned long lastFall = 0;        // NOT USED
 volatile bool newWord = false;              // NOT USED
-
+// ----- Ethernet/WiFi Variables -----
 bool newClient = false;               // Whether the client is new or not
 bool streamData = false;              // Was the request to stream data? (/STREAM)
-
-time_t t = now();                     // Initialize the time variable
+// Enter a MAC address and IP address for the controller:
+byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
+// Set a manual IP address in case DHCP Fails:
+IPAddress ip(192, 168, 1, 169);
 
 char buf[100];                        // NOT USED
 TextBuffer message(128);              // Initialize TextBuffer.h for print/client message
-CRC32 crc32;                          // Initialize CRC // NOT USED
+CRC32 crc32;                          // Initialize CRC   // NOT USED
 
-// Enter a MAC address and IP address for the controller below.
-byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
-// Set a manual IP address in case DHCP Fails
-IPAddress ip(192, 168, 1, 169);
-
-EthernetServer server(80);
-EthernetClient client;
+EthernetServer server(80);            // Start Ethernet Server on Port 80
+EthernetClient client;                // Start Ethernet Client
 
 void setup()
 {
