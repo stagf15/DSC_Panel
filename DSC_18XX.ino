@@ -306,9 +306,9 @@ void clkCalled()
 
 void pnlBinary(String &dataStr)
 {
+  // Formats the referenced string into bytes of binary data in the form:
+  //  8 1 8 8 8 8 8 etc, and then prints each segment  
   if (dataStr.length() > 8) {
-    // Formats the referenced string into bytes of binary data in the form:
-    //  8 1 8 8 8 8 8 etc, and then prints each segment
     message.write(dataStr.substring(0,8));
     message.write(" ");
     message.write(dataStr.substring(8,9));
@@ -330,6 +330,8 @@ void pnlBinary(String &dataStr)
 
 bool pnlChkSum(String &dataStr)
 {
+  // Sums all but the last full byte (minus padding) and compares to last byte
+  // returns 0 if not valid, and 1 if checksum valid
   int cSum = 0;
   if (dataStr.length() > 8) {
     cSum += binToInt(dataStr,0,8);
@@ -353,9 +355,9 @@ bool pnlChkSum(String &dataStr)
 
 void kpdBinary(String &dataStr)
 {
+  // Formats the referenced string into bytes of binary data in the form:
+  //  8 8 8 8 8 8 etc, and then prints each segment
   if (dataStr.length() > 8) {
-    // Formats the referenced string into bytes of binary data in the form:
-    //  8 8 8 8 8 8 etc, and then prints each segment
     int grps = dataStr.length() / 8;
     for(int i=0;i<grps;i++) {
       message.write(dataStr.substring(i*8,(i+1)*8));
