@@ -1,4 +1,4 @@
-// DSC_18XX Arduino Interface ver. 1.5
+// DSC_18XX Arduino Interface
 //
 // Sketch to decode the keybus protocol on DSC PowerSeries 1816, 1832 and 1864 panels
 //   -- Use the schematic at https://github.com/emcniece/Arduino-Keybus to connect the
