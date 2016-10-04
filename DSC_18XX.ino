@@ -227,9 +227,9 @@ void loop()
   kWord = kBuild;                       // Save the complete keypad raw data bytes sentence
   pBuild = "";                          // Reset the raw data panel word being built
   kBuild = "";                          // Reset the raw data bytes keypad word being built
-  byte pCmd = decodePanel();            // Initialize:  Panel Command Byte
-  byte kCmd = decodeKeypad();           //              Keypad Command Byte
-  String msg = "", kMsg = "";           //              Panel and Keypad Messages
+  byte pCmd = decodePanel();            // Decode the panel binary, return command byte, or 0
+  byte kCmd = decodeKeypad();           // Decode the keypad binary, return command byte, or 0
+  String msg = "", kMsg = "";           // Initialize panel and keypad messages for output
 
   if (pCmd) {
     // ------------ Write the panel message to buffer ------------
@@ -237,7 +237,6 @@ void loop()
     message.write(F("[Panel]  "));
     pnlBinary(pWord);                     // Writes formatted raw data to the message buffer
     Serial.print(message.getBuffer());
-    //printHex(pWord);                    // Print the raw data in Hex (WORKS!)
 
     message.clear();                      // Clear the message Buffer (this sets first byte to 0)
     message.write(formatTime(now()));     // Add the time stamp
@@ -590,7 +589,6 @@ static byte decodeKeypad()
    
     // Interpret the data
     if (cmd == kOut) {
-       
       if (kByte2 != 0xff)
         kMsg += "[Button] ";
       if (kByte2 == one)
@@ -629,9 +627,9 @@ static byte decodeKeypad()
         kMsg += F("Exit");
       else if (kByte2 == lArrow)  // These arrow commands don't work every time
         kMsg += F("<");
-      else if (kByte2 == rArrow)  // They often reverse for unknown reasons
+      else if (kByte2 == rArrow)  // They are often reverse for unknown reasons
         kMsg += F(">");
-      else if (kByte2 == 0xff)
+      else if (kByte2 == kOut)
         kMsg += F("[Keypad Response]");
       else {
         kMsg += "0x" + String(kByte2, HEX) + " (Unknown)";
