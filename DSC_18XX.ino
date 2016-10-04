@@ -48,7 +48,7 @@ const byte one    = 0x82;   // 10000010
 const byte two    = 0x85;   // 10000101
 const byte three  = 0x87;   // 10000111
 const byte four   = 0x88;   // 10001000
-const byte five   = 0x8B;   // 10001011
+const byte five   = 0x8b;   // 10001011
 const byte six    = 0x8d;   // 10001101
 const byte seven  = 0x8e;   // 10001110
 const byte eight  = 0x91;   // 10010001
@@ -84,21 +84,21 @@ byte kBytes[ARR_SIZE] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0};    // NOT USED
 unsigned long lastStatus = 0;
 unsigned long lastData = 0;
 // Volatile variables, modified within ISR
-volatile unsigned long intervalTimer = 0;
+volatile unsigned long intervalTimer = 0;   // NOT USED
 volatile unsigned long clockChange = 0;
-volatile unsigned long lastChange = 0;
-volatile unsigned long lastRise = 0;
-volatile unsigned long lastFall = 0;
-volatile bool newWord = false;
+volatile unsigned long lastChange = 0;      
+volatile unsigned long lastRise = 0;        // NOT USED
+volatile unsigned long lastFall = 0;        // NOT USED
+volatile bool newWord = false;              // NOT USED
 
-bool newClient = false;              // Whether the client is new or not
-bool streamData = false;             // Was the request to stream data? (/STREAM)
+bool newClient = false;               // Whether the client is new or not
+bool streamData = false;              // Was the request to stream data? (/STREAM)
 
-time_t t = now();                    // Initialize the time variable
+time_t t = now();                     // Initialize the time variable
 
-char buf[100];
-TextBuffer message(128);             // Initialize TextBuffer.h for print/client message
-CRC32 crc32;                         // Initialize CRC // NOT USED
+char buf[100];                        // NOT USED
+TextBuffer message(128);              // Initialize TextBuffer.h for print/client message
+CRC32 crc32;                          // Initialize CRC // NOT USED
 
 // Enter a MAC address and IP address for the controller below.
 byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
@@ -110,8 +110,8 @@ EthernetClient client;
 
 void setup()
 {
-  pinMode(CLK,INPUT);
-  pinMode(DTA_IN,INPUT);
+  pinMode(CLK, INPUT);
+  pinMode(DTA_IN, INPUT);
   pinMode(DTA_OUT, OUTPUT);
   Serial.begin(115200);
   Serial.flush();
@@ -119,14 +119,14 @@ void setup()
   Serial.println(F("Key Bus Monitor"));
   Serial.println(F("Initializing"));
 
-  message.begin();                   // Begin the message buffer, allocate memory
+  message.begin();              // Begin the message buffer, allocate memory
  
   // Start the Ethernet connection and the server (Try to use DHCP):
   Serial.println(F("Trying to get an IP address using DHCP..."));
   if (Ethernet.begin(mac) == 0) {
     Serial.println(F("Trying to manually set IP address..."));
     // Initialize the ethernet device using manual IP address:
-    if (1 == 0) {                   // This logic is "shut off", doesn't work with Ethernet client
+    if (1 == 0) {               // This logic is "shut off", doesn't work with Ethernet client
       Serial.println(F("No ethernet connection"));
     }
     else {
@@ -203,9 +203,9 @@ void loop()
   // --------------- Print No Data Message -------------- (FOR DEBUG PURPOSES)
   if ((millis() - lastData) > 20000) {
     // Print no data message if there is no new data in XX time (ms)
-    Serial.println("--- No data for 20 seconds ---");  
+    Serial.println(F("--- No data for 20 seconds ---"));  
     if (client.connected() and streamData) {
-      client.println("--- No data for 20 seconds ---"); 
+      client.println(F("--- No data for 20 seconds ---")); 
     }
     lastData = millis();          // Reset the timer
   }
@@ -233,7 +233,7 @@ void loop()
   if (pCmd) {
     // ------------ Write the panel message to buffer ------------
     message.clear();                      // Clear the message Buffer (this sets first byte to 0)
-    message.write("[Panel]  ");
+    message.write(F("[Panel]  "));
     pnlBinary(pWord);                     // Writes formatted raw data to the message buffer
     Serial.print(message.getBuffer());
     //printHex(pWord);                    // Print the raw data in Hex (WORKS!)
@@ -259,7 +259,7 @@ void loop()
   if (kCmd) {
     // ------------ Write the keypad message to buffer ------------
     message.clear();                      // Clear the message Buffer (this sets first byte to 0)
-    message.write("[Keypad] ");
+    message.write(F("[Keypad] "));
     kpdBinary(kWord);                     // Writes formatted raw data to the message buffer
     Serial.print(message.getBuffer());
   
@@ -342,6 +342,29 @@ bool pnlBinary(String &dataStr)
   return chkSumOk;
 }
 
+bool pnlChkSum(String &dataStr)
+{
+  int cSum = 0;
+  if (dataStr.length() > 8) {
+    cSum += binToInt(dataStr,0,8);
+    int grps = (dataStr.length() - 9) / 8;
+    for(int i=0;i<grps;i++) {
+      if (i<(grps-1)) 
+        cSum += binToInt(dataStr,9+(i*8),8);
+      else {
+        byte cSumMod = cSum / 256;
+        //String cSumStr = String(chkSum, HEX);
+        //int cSumLen = cSumStr.length();
+        byte lastByte = binToInt(dataStr,9+(i*8),8);
+        //byte cSumByte = binToInt(cSumStr,(cSumLen-2),2);
+        //if (cSumSub == lastByte) return true;
+        if (cSumMod == lastByte) return true;
+      }
+    }
+  }
+  return false;
+}
+
 bool kpdBinary(String &dataStr)
 {
   int chkSum = 0x00;
@@ -380,12 +403,12 @@ bool kpdBinary(String &dataStr)
 unsigned int binToInt(String &dataStr, int offset, int dataLen)
 {
   // Returns the value of the binary data in the String from "offset" to "dataLen" as an int
-  int buf = 0;
+  int iBuf = 0;
   for(int j=0;j<dataLen;j++) {
-    buf <<= 1;
-    if (dataStr[offset+j] == '1') buf |= 1;
+    iBuf <<= 1;
+    if (dataStr[offset+j] == '1') iBuf |= 1;
   }
-  return buf;
+  return iBuf;
 }
 
 String byteToBin(byte b)
@@ -464,12 +487,12 @@ static int decodePanel()
       
       setTime(HH,MM,0,dd,mm,yy);
       if (timeStatus() == timeSet) {
-        Serial.println("Time Synchronized");
-        msg += "Time Sync ";
+        Serial.println(F("Time Synchronized"));
+        msg += F("Time Sync ");
       }
       else {
-        Serial.println("Time Sync Error");
-        msg += "Time Sync Error ";
+        Serial.println(F("Time Sync Error"));
+        msg += F("Time Sync Error ");
       }      
 
       int arm = binToInt(pWord,41,2);
