@@ -227,8 +227,9 @@ void loop()
   kWord = kBuild;                       // Save the complete keypad raw data bytes sentence
   pBuild = "";                          // Reset the raw data panel word being built
   kBuild = "";                          // Reset the raw data bytes keypad word being built
-  int pCmd = decodePanel();
-  int kCmd = decodeKeypad();
+  byte pCmd = decodePanel();            // Initialize:  Panel Command Byte
+  byte kCmd = decodeKeypad();           //              Keypad Command Byte
+  String msg = "", kMsg = "";           //              Panel and Keypad Messages
 
   if (pCmd) {
     // ------------ Write the panel message to buffer ------------
@@ -304,17 +305,12 @@ void clkCalled()
   }
 }
 
-bool pnlBinary(String &dataStr)
+void pnlBinary(String &dataStr)
 {
-  int chkSum = 0x00;
-  byte lastByte = 0x00;
-  bool chkSumOk = false;
-  
   if (dataStr.length() > 8) {
     // Formats the referenced string into bytes of binary data in the form:
     //  8 1 8 8 8 8 8 etc, and then prints each segment
     message.write(dataStr.substring(0,8));
-    chkSum += binToInt(dataStr,0,8);
     message.write(" ");
     message.write(dataStr.substring(8,9));
     message.write(" ");
@@ -322,14 +318,6 @@ bool pnlBinary(String &dataStr)
     for(int i=0;i<grps;i++) {
       message.write(dataStr.substring(9+(i*8),9+(i+1)*8));
       message.write(" ");
-      if (i<(grps-1)) 
-        chkSum += binToInt(dataStr,9+(i*8),8);
-      else {
-        String fullCS = String(chkSum, HEX);
-        lastByte = binToInt(dataStr,9+(i*8),8);
-        if (fullCS.substring((fullCS.length()-2),fullCS.length()) == 
-            String(lastByte, HEX)) chkSumOk = true;
-      }
     }
     if (dataStr.length() > ((grps*8)+9))
       message.write(dataStr.substring((grps*8)+9,dataStr.length()));
@@ -337,9 +325,8 @@ bool pnlBinary(String &dataStr)
   else {
     message.write(dataStr);
   }
-  if (chkSumOk) message.write(" (OK)");
+  if (pnlChkSum(dataStr)) message.write(" (OK)");
   message.writeln();
-  return chkSumOk;
 }
 
 bool pnlChkSum(String &dataStr)
@@ -365,12 +352,8 @@ bool pnlChkSum(String &dataStr)
   return false;
 }
 
-bool kpdBinary(String &dataStr)
+void kpdBinary(String &dataStr)
 {
-  int chkSum = 0x00;
-  byte lastByte = 0x00;
-  bool chkSumOk = false;
-  
   if (dataStr.length() > 8) {
     // Formats the referenced string into bytes of binary data in the form:
     //  8 8 8 8 8 8 etc, and then prints each segment
@@ -378,16 +361,6 @@ bool kpdBinary(String &dataStr)
     for(int i=0;i<grps;i++) {
       message.write(dataStr.substring(i*8,(i+1)*8));
       message.write(" ");
-      /*
-      if (i=1) 
-        chkSum += binToInt(dataStr,i*8,8);
-      else if (i=2) {
-        String fullCS = String(chkSum, HEX);
-        lastByte = binToInt(dataStr,i*8,8);
-        if (fullCS.substring((fullCS.length()-2),fullCS.length()) == 
-            String(lastByte, HEX)) chkSumOk = true;
-      }
-      */
     }
     if (dataStr.length() > (grps*8))
       message.write(dataStr.substring((grps*8),dataStr.length()));
@@ -395,9 +368,7 @@ bool kpdBinary(String &dataStr)
   else {
     message.write(dataStr);
   }
-  if (chkSumOk) message.write(" (OK)");
   message.writeln();
-  return chkSumOk;
 }
 
 unsigned int binToInt(String &dataStr, int offset, int dataLen)
@@ -442,7 +413,7 @@ String digits(unsigned int val)
 static int decodePanel() 
 {
   // ------------- Process the Panel Data Word ---------------
-  int cmd = binToInt(pWord,0,8);        // Get the panel pCmd (data word type/command)
+  byte cmd = binToInt(pWord,0,8);       // Get the panel pCmd (data word type/command)
   
   if (pWord == oldPWord || cmd == 0x00) {
     // Skip this word if the data hasn't changed, or pCmd is empty (0x00)
@@ -452,8 +423,6 @@ static int decodePanel()
     // This seems to be a valid word, try to process it  
     lastData = millis();                // Record the time (last data word was received)
     oldPWord = pWord;                   // This is a new/good word, save it
-   
-    String msg = "";
    
     // Interpret the data
     if (cmd == 0x05) 
@@ -495,9 +464,9 @@ static int decodePanel()
         msg += F("Time Sync Error ");
       }      
 
-      int arm = binToInt(pWord,41,2);
-      int master = binToInt(pWord,43,1);
-      int user = binToInt(pWord,43,6); // 0-36
+      byte arm = binToInt(pWord,41,2);
+      byte master = binToInt(pWord,43,1);
+      byte user = binToInt(pWord,43,6); // 0-36
       if (arm == 0x02) {
         msg += F(", Armed");
         user = user - 0x19;
@@ -603,10 +572,10 @@ static int decodePanel()
   }
 }
 
-static int decodeKeypad() 
+static byte decodeKeypad() 
 {
   // ------------- Process the Keypad Data Word ---------------
-  int cmd = binToInt(pWord,0,8);      // Get the keypad pCmd (data word type/command)
+  byte cmd = binToInt(pWord,0,8);     // Get the keypad pCmd (data word type/command)
   
   if (kWord.indexOf("0") == -1) {  
     // Skip this word if kWord is all 1's
@@ -617,8 +586,7 @@ static int decodeKeypad()
     lastData = millis();              // Record the time (last data word was received)
     oldKWord = kWord;                 // This is a new/good word, save it
 
-    String kMsg = "";
-    int kByte2 = binToInt(kWord,8,8); 
+    byte kByte2 = binToInt(kWord,8,8); 
    
     // Interpret the data
     if (cmd == kOut) {
