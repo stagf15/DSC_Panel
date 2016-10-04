@@ -38,6 +38,7 @@
 #define DTA_OUT 8   // Keybus Green Output (Data Line through driver)
 #define LED_PIN 13  // LED pin on the arduino
 
+const char hex[] = "0123456789abcdef";
 // ----- KEYPAD BUTTON VALUES -----
 const byte kOut   = 0xff;   // 11111111 Usual 1st byte from keypad
 const byte k_ff   = 0xff;   // 11111111 Keypad CRC checksum 1?
@@ -71,9 +72,8 @@ const byte panic  = 0xef;   // 11101110
 // --------
 
 const byte MAX_BITS = 200;
-const byte ARR_SIZE = 14;   // Max of 254
-const int NEW_WORD_INTV = 1500;
-const char hex[] = "0123456789abcdef";
+const byte ARR_SIZE = 14;         // Max of 254
+const int NEW_WORD_INTV = 1500;   // New word indicator interval in us (Microseconds)
 
 String pBuild="", pWord="", oldPWord="";
 String kBuild="", kWord="", oldKWord="";
@@ -83,18 +83,20 @@ byte kBytes[ARR_SIZE] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0};    // NOT USED
 
 unsigned long lastStatus = 0;
 unsigned long lastData = 0;
+// Volatile variables, modified within ISR
 volatile unsigned long intervalTimer = 0;
 volatile unsigned long clockChange = 0;
 volatile unsigned long lastChange = 0;
 volatile unsigned long lastRise = 0;
 volatile unsigned long lastFall = 0;
-char buf[100];
+volatile bool newWord = false;
 
 bool newClient = false;              // Whether the client is new or not
 bool streamData = false;             // Was the request to stream data? (/STREAM)
 
 time_t t = now();                    // Initialize the time variable
 
+char buf[100];
 TextBuffer message(128);             // Initialize TextBuffer.h for print/client message
 CRC32 crc32;                         // Initialize CRC // NOT USED
 
@@ -513,6 +515,8 @@ void clkCalled()
 {
   clockChange = micros();                 // Save the current clock change time
   intervalTimer = (clockChange - lastChange); // Determine interval since last clock change
+  //if (intervalTimer > NEW_WORD_INTV) newWord = true;
+  //else newWord = false;
   lastChange = clockChange;               // Re-save the current change time as last change time
 
   if (digitalRead(CLK)) {                 // If clock line is going HIGH, this is PANEL data
