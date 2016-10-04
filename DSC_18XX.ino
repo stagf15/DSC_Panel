@@ -16,16 +16,15 @@
 //      -- Original sketch obtained from: https://github.com/emcniece/Arduino-Keybus
 //      -- Additional code segments added from: http://www.avrfreaks.net/forum/dsc-keybus-protocol
 //      -- The arduino will process the lines of binary data from the DSC panel on the
-//         keybus, while listening for connections via ethernet shield.
+//         keybus, while listening for connections via an Arduino ethernet shield
 //      -- The connection acts as a TCP "Serial Monitor", streaming the output over TCP, and 
 //         can be accessed by navigating to the IP address in the initialization message on the 
 //         serial monitor, followed by /STREAM.  (Example:  http://192.168.1.45/STREAM)
-//     - 25 Sep 16
-//      -- Added ability to also read Keypad messages from the data line on the downward flank of 
-//         the clock signal. (May still need work on timing, but data seems good)
-//      -- Added an experimental function to test writing the formatted binary data to a buffer
-//         prior to serial print or writing to client
-//
+// 1.1 - Added ability to read Keypad messages from the data line on the downward flank of 
+//       the clock signal. (May still need work on timing, but data seems good)
+// 1.2 - Changed timing and logic involved with reading and processing words from the keypad
+//       and panel to make it more reliable
+// 1.3 - 
 //
 
 #include <SPI.h>
@@ -34,15 +33,16 @@
 #include <TextBuffer.h>
 #include <TimeLib.h>
 
-#define CLK 3     // Keybus Yellow (Clock Line)
-#define DTA_IN 4  // Keybus Green (Data Line via V divider)
-#define DTA_OUT 8 // Keybus Green Output (Data Line through driver)
+#define CLK 3       // Keybus Yellow (Clock Line)
+#define DTA_IN 4    // Keybus Green (Data Line via V divider)
+#define DTA_OUT 8   // Keybus Green Output (Data Line through driver)
+#define LED_PIN 13  // LED pin on the arduino
 
 // ----- KEYPAD BUTTON VALUES -----
 const byte kOut   = 0xff;   // 11111111 Usual 1st byte from keypad
-const byte k_ff   = 0xff;   // 11111111 Keypad CRC checksum?
-const byte k_7f   = 0x7f;   // 01111111 Keypad CRC checksum?
-// The following buttons data are in the 2nd byte (after 1 padding)
+const byte k_ff   = 0xff;   // 11111111 Keypad CRC checksum 1?
+const byte k_7f   = 0x7f;   // 01111111 Keypad CRC checksum 2?
+// The following buttons data are in the 2nd byte
 const byte one    = 0x82;   // 10000010
 const byte two    = 0x85;   // 10000101
 const byte three  = 0x87;   // 10000111
@@ -65,9 +65,9 @@ const byte rArrow = 0xf7;   // 11110111
 // -------
 // The following buttons data are in the 1st byte, and these 
 //   seem to be sent twice, with a panel response in between:
-const byte fire   = 0xbb;   // 10111011 (bb)
-const byte aux    = 0xdd;   // 11011101 (dd)
-const byte panic  = 0xef;   // 11101110 (ef)
+const byte fire   = 0xbb;   // 10111011 
+const byte aux    = 0xdd;   // 11011101 
+const byte panic  = 0xef;   // 11101110 
 // --------
 
 const byte MAX_BITS = 200;
@@ -78,24 +78,25 @@ const char hex[] = "0123456789abcdef";
 String pBuild="", pWord="", oldPWord="";
 String kBuild="", kWord="", oldKWord="";
 
-byte pBytes[ARR_SIZE] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0};
-byte kBytes[ARR_SIZE] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0}; 
+byte pBytes[ARR_SIZE] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0};    // NOT USED
+byte kBytes[ARR_SIZE] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0};    // NOT USED
 
 unsigned long lastStatus = 0;
 unsigned long lastData = 0;
-unsigned long pulseTime = 0;
-unsigned long lastChange = 0;
-unsigned long lastRise = 0;
-unsigned long lastFall = 0;
+volatile unsigned long intervalTimer = 0;
+volatile unsigned long clockChange = 0;
+volatile unsigned long lastChange = 0;
+volatile unsigned long lastRise = 0;
+volatile unsigned long lastFall = 0;
 char buf[100];
 
 bool newClient = false;              // Whether the client is new or not
-bool streamData = false;             // Was the request to stream data? (/)
+bool streamData = false;             // Was the request to stream data? (/STREAM)
 
 time_t t = now();                    // Initialize the time variable
 
-TextBuffer message(128);             // Initialize TextBuffer.h for print message
-CRC32 crc32;
+TextBuffer message(128);             // Initialize TextBuffer.h for print/client message
+CRC32 crc32;                         // Initialize CRC // NOT USED
 
 // Enter a MAC address and IP address for the controller below.
 byte mac[] = { 0xDE, 0xAD, 0xBE, 0xEF, 0xFE, 0xED };
@@ -135,7 +136,7 @@ void setup()
   Serial.println(Ethernet.localIP());
   Serial.println();
 
-  // Attache interrupt on the CLK pin
+  // Attach interrupt on the CLK pin
   attachInterrupt(digitalPinToInterrupt(CLK), clkCalled, CHANGE);  
       // Moved to the last line in setup, otherwise may interrupt init message
       // Changed from RISING to CHANGE to read both panel and keypad data
@@ -193,11 +194,11 @@ void loop()
  
   // ----------------- Turn on/off LED ------------------
   if ((millis() - lastStatus) > 500)
-    digitalWrite(13,0);               // Turn LED OFF (no recent status command [0x05])
+    digitalWrite(LED_PIN,0);               // Turn LED OFF (no recent status command [0x05])
   else
-    digitalWrite(13,1);               // Turn LED ON  (recent status command [0x05])
+    digitalWrite(LED_PIN,1);               // Turn LED ON  (recent status command [0x05])
 
-  // --------------- Print No Data Message --------------
+  // --------------- Print No Data Message -------------- (FOR DEBUG PURPOSES)
   if ((millis() - lastData) > 20000) {
     // Print no data message if there is no new data in XX time (ms)
     Serial.println("--- No data for 20 seconds ---");  
@@ -510,19 +511,21 @@ void loop()
 
 void clkCalled()
 {
-  lastChange = micros();
+  clockChange = micros();                 // Save the current clock change time
+  intervalTimer = (clockChange - lastChange); // Determine interval since last clock change
+  lastChange = clockChange;               // Re-save the current change time as last change time
 
-  if (digitalRead(CLK)) {             // If clock line is going HIGH, this is PANEL data
-    lastRise = lastChange;            // Set the lastRise time
-    if (pBuild.length() <= MAX_BITS) {  // Limit the string size to something manageable
-      //delayMicroseconds(120);       // Delay for 120 us to get a valid data line read
+  if (digitalRead(CLK)) {                 // If clock line is going HIGH, this is PANEL data
+    lastRise = lastChange;                // Set the lastRise time
+    if (pBuild.length() <= MAX_BITS) {    // Limit the string size to something manageable
+      //delayMicroseconds(120);           // Delay for 120 us to get a valid data line read
       if (digitalRead(DTA_IN)) pBuild += "1"; else pBuild += "0";
     }
   }
-  else {                              // Otherwise, it's going LOW, this is KEYPAD data
-    lastFall = lastChange;            // Set the lastFall time
-    if (kBuild.length() <= MAX_BITS) {  // Limit the string size to something manageable 
-      //delayMicroseconds(200);         // Delay for 300 us to get a valid data line read
+  else {                                  // Otherwise, it's going LOW, this is KEYPAD data
+    lastFall = lastChange;                // Set the lastFall time
+    if (kBuild.length() <= MAX_BITS) {    // Limit the string size to something manageable 
+      //delayMicroseconds(200);           // Delay for 300 us to get a valid data line read
       if (digitalRead(DTA_IN)) kBuild += "1"; else kBuild += "0";
     }
   }
