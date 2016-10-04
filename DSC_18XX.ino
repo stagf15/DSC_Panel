@@ -71,13 +71,13 @@ const byte aux    = 0xdd;   // 11011101
 const byte panic  = 0xef;   // 11101110 
 // --------
 
-const byte MAX_BITS = 200;
-const byte ARR_SIZE = 14;         // Max of 254
+const byte MAX_BITS = 200;        // Max of 254
 const int NEW_WORD_INTV = 1500;   // New word indicator interval in us (Microseconds)
 
 String pBuild="", pWord="", oldPWord="";
 String kBuild="", kWord="", oldKWord="";
 
+const byte ARR_SIZE = 14;         // Max of 254           // NOT USED
 byte pBytes[ARR_SIZE] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0};    // NOT USED
 byte kBytes[ARR_SIZE] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0};    // NOT USED
 
