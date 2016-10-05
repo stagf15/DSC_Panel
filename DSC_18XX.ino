@@ -73,8 +73,8 @@ const byte panic  = 0xef;   // 11101110
 const byte MAX_BITS = 200;        // Max of 254
 const int NEW_WORD_INTV = 1500;   // New word indicator interval in us (Microseconds)
 // ----- Keybus Word String Vars -----
-String pBuild="", pWord="", oldPWord="";
-String kBuild="", kWord="", oldKWord="";
+String pBuild="", pWord="", oldPWord="", pMsg="";
+String kBuild="", kWord="", oldKWord="", kMsg="";
 // ----- Byte Array Variables -----
 const byte ARR_SIZE = 14;         // Max of 254           // NOT USED
 byte pBytes[ARR_SIZE] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0};    // NOT USED
@@ -220,13 +220,13 @@ void loop()
   // about 13.5 ms left to process and output the panel and keypad words before the next 
   // words begin. 
 
-  pWord = pBuild;                       // Save the complete panel raw data bytes sentence
-  kWord = kBuild;                       // Save the complete keypad raw data bytes sentence
-  pBuild = "";                          // Reset the raw data panel word being built
-  kBuild = "";                          // Reset the raw data bytes keypad word being built
-  byte pCmd = decodePanel();            // Decode the panel binary, return command byte, or 0
-  byte kCmd = decodeKeypad();           // Decode the keypad binary, return command byte, or 0
-  String msg = "", kMsg = "";           // Initialize panel and keypad messages for output
+  pWord = pBuild;                 // Save the complete panel raw data bytes sentence
+  kWord = kBuild;                 // Save the complete keypad raw data bytes sentence
+  pBuild = "";                    // Reset the raw data panel word being built
+  kBuild = "";                    // Reset the raw data bytes keypad word being built
+  pMsg = ""; kMsg = "";           // Initialize panel and keypad messages for output
+  byte pCmd = decodePanel();      // Decode the panel binary, return command byte, or 0
+  byte kCmd = decodeKeypad();     // Decode the keypad binary, return command byte, or 0
 
   if (pCmd) {
     // ------------ Write the panel message to buffer ------------
@@ -244,7 +244,7 @@ void loop()
     message.write("(");
     message.write(pCmd);
     message.write("): ");
-    message.writeln(msg);
+    message.writeln(pMsg);
   
     // ------------ Print the message ------------
     Serial.print(message.getBuffer());
@@ -426,24 +426,24 @@ static int decodePanel()
     if (cmd == 0x05) 
     {
       lastStatus = millis();            // Record the time for LED logic
-      msg += F("[Status] ");
+      pMsg += F("[Status] ");
       if (binToInt(pWord,16,1)) {
-        msg += F("Ready");
+        pMsg += F("Ready");
       }
       else {
-        msg += F("Not Ready");
+        pMsg += F("Not Ready");
       }
-      if (binToInt(pWord,12,1)) msg += F(", Error");
-      if (binToInt(pWord,13,1)) msg += F(", Bypass");
-      if (binToInt(pWord,14,1)) msg += F(", Memory");
-      if (binToInt(pWord,15,1)) msg += F(", Armed");
-      if (binToInt(pWord,17,1)) msg += F(", Program");
-      if (binToInt(pWord,29,1)) msg += F(", Power Fail");   // ??? - maybe 28 or 20?
+      if (binToInt(pWord,12,1)) pMsg += F(", Error");
+      if (binToInt(pWord,13,1)) pMsg += F(", Bypass");
+      if (binToInt(pWord,14,1)) pMsg += F(", Memory");
+      if (binToInt(pWord,15,1)) pMsg += F(", Armed");
+      if (binToInt(pWord,17,1)) pMsg += F(", Program");
+      if (binToInt(pWord,29,1)) pMsg += F(", Power Fail");   // ??? - maybe 28 or 20?
     }
    
     if (cmd == 0xa5)
     {
-      msg += F("[Info] ");
+      pMsg += F("[Info] ");
       int y3 = binToInt(pWord,9,4);
       int y4 = binToInt(pWord,13,4);
       int yy = (String(y3) + String(y4)).toInt();
@@ -455,116 +455,116 @@ static int decodePanel()
       setTime(HH,MM,0,dd,mm,yy);
       if (timeStatus() == timeSet) {
         Serial.println(F("Time Synchronized"));
-        msg += F("Time Sync ");
+        pMsg += F("Time Sync ");
       }
       else {
         Serial.println(F("Time Sync Error"));
-        msg += F("Time Sync Error ");
+        pMsg += F("Time Sync Error ");
       }      
 
       byte arm = binToInt(pWord,41,2);
       byte master = binToInt(pWord,43,1);
       byte user = binToInt(pWord,43,6); // 0-36
       if (arm == 0x02) {
-        msg += F(", Armed");
+        pMsg += F(", Armed");
         user = user - 0x19;
       }
       if (arm == 0x03) {
-        msg += F(", Disarmed");
+        pMsg += F(", Disarmed");
       }
       if (arm > 0) {
-        if (master) msg += F(", Master Code"); 
-        else msg += F(", User Code");
+        if (master) pMsg += F(", Master Code"); 
+        else pMsg += F(", User Code");
         user += 1; // shift to 1-32, 33, 34
         if (user > 34) user += 5; // convert to system code 40, 41, 42
-        msg += " " + String(user);
+        pMsg += " " + String(user);
       }
     }
     
     if (cmd == 0x27)
     {
-      msg += F("[Zones A] ");
+      pMsg += F("[Zones A] ");
       int zones = binToInt(pWord,8+1+8+8+8+8,8);
-      if (zones & 1) msg += "1";
-      if (zones & 2) msg += "2";
-      if (zones & 4) msg += "3";
-      if (zones & 8) msg += "4";
-      if (zones & 16) msg += "5";
-      if (zones & 32) msg += "6";
-      if (zones & 64) msg += "7";
-      if (zones & 128) msg += "8";
-      if (zones == 0) msg += "Ready ";
+      if (zones & 1) pMsg += "1";
+      if (zones & 2) pMsg += "2";
+      if (zones & 4) pMsg += "3";
+      if (zones & 8) pMsg += "4";
+      if (zones & 16) pMsg += "5";
+      if (zones & 32) pMsg += "6";
+      if (zones & 64) pMsg += "7";
+      if (zones & 128) pMsg += "8";
+      if (zones == 0) pMsg += "Ready ";
     }
     
     if (cmd == 0x2d)
     {
-      msg += F("[Zones B] ");
+      pMsg += F("[Zones B] ");
       int zones = binToInt(pWord,8+1+8+8+8+8,8);
-      if (zones & 1) msg += "9";
-      if (zones & 2) msg += "10";
-      if (zones & 4) msg += "11";
-      if (zones & 8) msg += "12";
-      if (zones & 16) msg += "13";
-      if (zones & 32) msg += "14";
-      if (zones & 64) msg += "15";
-      if (zones & 128) msg += "16";
-      if (zones == 0) msg += "Ready ";
+      if (zones & 1) pMsg += "9";
+      if (zones & 2) pMsg += "10";
+      if (zones & 4) pMsg += "11";
+      if (zones & 8) pMsg += "12";
+      if (zones & 16) pMsg += "13";
+      if (zones & 32) pMsg += "14";
+      if (zones & 64) pMsg += "15";
+      if (zones & 128) pMsg += "16";
+      if (zones == 0) pMsg += "Ready ";
     }
     
     if (cmd == 0x34)
     {
-      msg += F("[Zones C] ");
+      pMsg += F("[Zones C] ");
       int zones = binToInt(pWord,8+1+8+8+8+8,8);
-      if (zones & 1) msg += "17";
-      if (zones & 2) msg += "18";
-      if (zones & 4) msg += "19";
-      if (zones & 8) msg += "20";
-      if (zones & 16) msg += "21";
-      if (zones & 32) msg += "22";
-      if (zones & 64) msg += "23";
-      if (zones & 128) msg += "24";
-      if (zones == 0) msg += "Ready ";
+      if (zones & 1) pMsg += "17";
+      if (zones & 2) pMsg += "18";
+      if (zones & 4) pMsg += "19";
+      if (zones & 8) pMsg += "20";
+      if (zones & 16) pMsg += "21";
+      if (zones & 32) pMsg += "22";
+      if (zones & 64) pMsg += "23";
+      if (zones & 128) pMsg += "24";
+      if (zones == 0) pMsg += "Ready ";
     }
     
     if (cmd == 0x3e)
     {
-      msg += F("[Zones D] ");
+      pMsg += F("[Zones D] ");
       int zones = binToInt(pWord,8+1+8+8+8+8,8);
-      if (zones & 1) msg += "25";
-      if (zones & 2) msg += "26";
-      if (zones & 4) msg += "27";
-      if (zones & 8) msg += "28";
-      if (zones & 16) msg += "29";
-      if (zones & 32) msg += "30";
-      if (zones & 64) msg += "31";
-      if (zones & 128) msg += "32";
-      if (zones == 0) msg += "Ready ";
+      if (zones & 1) pMsg += "25";
+      if (zones & 2) pMsg += "26";
+      if (zones & 4) pMsg += "27";
+      if (zones & 8) pMsg += "28";
+      if (zones & 16) pMsg += "29";
+      if (zones & 32) pMsg += "30";
+      if (zones & 64) pMsg += "31";
+      if (zones & 128) pMsg += "32";
+      if (zones == 0) pMsg += "Ready ";
     }
     // --- The other 32 zones for a 1864 panel need to be added after this ---
 
     if (cmd == 0x11) {
-      msg += F("[Keypad Query] ");
+      pMsg += F("[Keypad Query] ");
     }
     if (cmd == 0x0a) {
-      msg += F("[Panel Program Mode] ");
+      pMsg += F("[Panel Program Mode] ");
     } 
     if (cmd == 0x5d) {
-      msg += F("[Alarm Memory Group 1] ");
+      pMsg += F("[Alarm Memory Group 1] ");
     } 
     if (cmd == 0x63) {
-      msg += F("[Alarm Memory Group 2] ");
+      pMsg += F("[Alarm Memory Group 2] ");
     } 
     if (cmd == 0x64) {
-      msg += F("[Beep Command Group 1] ");
+      pMsg += F("[Beep Command Group 1] ");
     } 
     if (cmd == 0x69) {
-      msg += F("[Beep Command Group 2] ");
+      pMsg += F("[Beep Command Group 2] ");
     } 
     if (cmd == 0x39) {
-      msg += F("[Undefined command from panel] ");
+      pMsg += F("[Undefined command from panel] ");
     } 
     if (cmd == 0xb1) {
-      msg += F("[Zone Configuration] ");
+      pMsg += F("[Zone Configuration] ");
     }
   return cmd;     // Return success
   }
