@@ -40,6 +40,7 @@ const byte DTA_OUT  = 8;    // Keybus Green Output (Data Line through driver)
 const byte LED_PIN  = 13;   // LED pin on the arduino
 
 const char hex[] = "0123456789abcdef";  // HEX alphanumerics look-up array
+
 // ----- KEYPAD BUTTON VALUES -----
 const byte kOut   = 0xff;   // 11111111 Usual 1st byte from keypad
 const byte k_ff   = 0xff;   // 11111111 Keypad CRC checksum 1?
@@ -69,16 +70,20 @@ const byte rArrow = 0xf7;   // 11110111
 const byte fire   = 0xbb;   // 10111011 
 const byte aux    = 0xdd;   // 11011101 
 const byte panic  = 0xef;   // 11101110 
-// ----- Other Constants -----
+
+// ----- Word/Timing Constants -----
 const byte MAX_BITS = 200;        // Max of 254
-const int NEW_WORD_INTV = 1500;   // New word indicator interval in us (Microseconds)
+const int NEW_WORD_INTV = 2500;   // New word indicator interval in us (Microseconds)
+
 // ----- Keybus Word String Vars -----
 String pBuild="", pWord="", oldPWord="", pMsg="";
 String kBuild="", kWord="", oldKWord="", kMsg="";
+
 // ----- Byte Array Variables -----
 const byte ARR_SIZE = 14;         // Max of 254           // NOT USED
 byte pBytes[ARR_SIZE] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0};    // NOT USED
 byte kBytes[ARR_SIZE] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0};    // NOT USED
+
 // ----- Time Variables -----
 time_t t = now();                           // Initialize time (TimeLib.h)
 unsigned long lastStatus = 0;
@@ -90,6 +95,7 @@ volatile unsigned long lastChange = 0;
 volatile unsigned long lastRise = 0;        // NOT USED
 volatile unsigned long lastFall = 0;        // NOT USED
 volatile bool newWord = false;              // NOT USED
+
 // ----- Ethernet/WiFi Variables -----
 bool newClient = false;               // Whether the client is new or not
 bool streamData = false;              // Was the request to stream data? (/STREAM)
@@ -263,6 +269,12 @@ void loop()
     message.clear();                      // Clear the message Buffer (this sets first byte to 0)
     message.write(formatTime(now()));     // Add the time stamp
     message.write(" ");
+    if (String(kCmd,HEX).length() == 1)
+      message.write("0");                 // Write a leading zero to a single digit HEX
+    message.write(String(kCmd,HEX));
+    message.write("(");
+    message.write(kCmd);
+    message.write("): ");
     message.writeln(kMsg);
 
     // ------------ Print the message ------------
@@ -573,7 +585,7 @@ static int decodePanel()
 static byte decodeKeypad() 
 {
   // ------------- Process the Keypad Data Word ---------------
-  byte cmd = binToInt(pWord,0,8);     // Get the keypad pCmd (data word type/command)
+  byte cmd = binToInt(kWord,0,8);     // Get the keypad pCmd (data word type/command)
   
   if (kWord.indexOf("0") == -1) {  
     // Skip this word if kWord is all 1's
@@ -588,7 +600,7 @@ static byte decodeKeypad()
    
     // Interpret the data
     if (cmd == kOut) {
-      if (kByte2 != 0xff)
+      if (kByte2 != kOut)
         kMsg += "[Button] ";
       if (kByte2 == one)
         kMsg += "1";
