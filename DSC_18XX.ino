@@ -69,11 +69,11 @@ const byte rArrow = 0xf7;   // 11110111
 //   seem to be sent twice, with a panel response in between:
 const byte fire   = 0xbb;   // 10111011 
 const byte aux    = 0xdd;   // 11011101 
-const byte panic  = 0xef;   // 11101110 
+const byte panic  = 0xee;   // 11101110 
 
 // ----- Word/Timing Constants -----
 const byte MAX_BITS = 200;        // Max of 254
-const int NEW_WORD_INTV = 2500;   // New word indicator interval in us (Microseconds)
+const int NEW_WORD_INTV = 5200;   // New word indicator interval in us (Microseconds)
 
 // ----- Keybus Word String Vars -----
 String pBuild="", pWord="", oldPWord="", pMsg="";
@@ -219,7 +219,8 @@ void loop()
   // high then low, is 1 ms), restart the loop and wait to process data until it remains
   // unchanged for > 1.5 ms, which indicates that a new word marker has begun.
   
-  if (micros() < (lastChange + NEW_WORD_INTV)) return;
+  //if (micros() < (lastChange + NEW_WORD_INTV)) return;
+  if ((intervalTimer < (NEW_WORD_INTV + 200)) || (pBuild.length() < 8)) return; 
   
   // If it takes more than 1500 us (1.5 ms), the data word is complete, and it is now time 
   // to process the words.  The new word marker is about 15 ms long, which means we have 
@@ -227,10 +228,11 @@ void loop()
   // words begin. 
 
   pWord = pBuild;                 // Save the complete panel raw data bytes sentence
-  kWord = kBuild;                 // Save the complete keypad raw data bytes sentence
   pBuild = "";                    // Reset the raw data panel word being built
-  kBuild = "";                    // Reset the raw data bytes keypad word being built
-  pMsg = ""; kMsg = "";           // Initialize panel and keypad messages for output
+  pMsg = "";                      // Initialize panel message for output
+  //kWord = kBuild;                 // Save the complete keypad raw data bytes sentence
+  //kBuild = "";                    // Reset the raw data bytes keypad word being built
+  kMsg = "";                      // Initialize keypad message for output
   byte pCmd = decodePanel();      // Decode the panel binary, return command byte, or 0
   byte kCmd = decodeKeypad();     // Decode the keypad binary, return command byte, or 0
 
@@ -295,6 +297,10 @@ void clkCalled()
   intervalTimer = (clockChange - lastChange); // Determine interval since last clock change
   //if (intervalTimer > NEW_WORD_INTV) newWord = true;
   //else newWord = false;
+  if (intervalTimer > (NEW_WORD_INTV - 200)) {
+    kWord = kBuild;                       // Save the complete keypad raw data bytes sentence
+    kBuild = "";                          // Reset the raw data bytes keypad word being built
+  }
   lastChange = clockChange;               // Re-save the current change time as last change time
 
   if (digitalRead(CLK)) {                 // If clock line is going HIGH, this is PANEL data
