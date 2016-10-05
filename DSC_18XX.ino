@@ -215,9 +215,8 @@ void loop()
 
   // ---------------- Get/process incoming data ----------------
   
-  // If the clock (CLK) line takes less than 1500 us (1.5 ms) to change (1 clock period, 
-  // high then low, is 1 ms), restart the loop and wait to process data until it remains
-  // unchanged for > 1.5 ms, which indicates that a new word marker has begun.
+  // The normal clock frequency is 1 Hz or one cycle every ms (1000 us) 
+  // The new word marker is clock high for about 15 ms (15000 us)
   
   //if (micros() < (lastChange + NEW_WORD_INTV)) return;
   if ((intervalTimer < (NEW_WORD_INTV + 200)) || (pBuild.length() < 8)) return; 
@@ -225,7 +224,7 @@ void loop()
   // If it takes more than 1500 us (1.5 ms), the data word is complete, and it is now time 
   // to process the words.  The new word marker is about 15 ms long, which means we have 
   // about 13.5 ms left to process and output the panel and keypad words before the next 
-  // words begin. 
+  // words begin. - THIS IS WRONG...  
 
   pWord = pBuild;                 // Save the complete panel raw data bytes sentence
   pBuild = "";                    // Reset the raw data panel word being built
