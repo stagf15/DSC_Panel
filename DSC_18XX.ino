@@ -224,7 +224,7 @@ void loop()
   // If it takes more than 1500 us (1.5 ms), the data word is complete, and it is now time 
   // to process the words.  The new word marker is about 15 ms long, which means we have 
   // about 13.5 ms left to process and output the panel and keypad words before the next 
-  // words begin. - THIS IS WRONG...  
+  // words begin. 
 
   pWord = pBuild;                 // Save the complete panel raw data bytes sentence
   pBuild = "";                    // Reset the raw data panel word being built
@@ -360,6 +360,9 @@ bool pnlChkSum(String &dataStr)
         byte lastByte = binToInt(dataStr,9+(i*8),8);
         //byte cSumByte = binToInt(cSumStr,(cSumLen-2),2);
         //if (cSumSub == lastByte) return true;
+        //Serial.println(cSum);
+        //Serial.println(cSumMod);
+        //Serial.println(lastByte);
         if (cSumMod == lastByte) return true;
       }
     }
@@ -591,7 +594,8 @@ static byte decodeKeypad()
 {
   // ------------- Process the Keypad Data Word ---------------
   byte cmd = binToInt(kWord,0,8);     // Get the keypad pCmd (data word type/command)
-  
+  String btnStr = F("[Button] ");
+
   if (kWord.indexOf("0") == -1) {  
     // Skip this word if kWord is all 1's
     return 0;     // Return failure
@@ -605,59 +609,57 @@ static byte decodeKeypad()
    
     // Interpret the data
     if (cmd == kOut) {
-      if (kByte2 != kOut)
-        kMsg += "[Button] ";
       if (kByte2 == one)
-        kMsg += "1";
+        kMsg += btnStr + "1";
       else if (kByte2 == two)
-        kMsg += "2";
+        kMsg += btnStr + "2";
       else if (kByte2 == three)
-        kMsg += "3";
+        kMsg += btnStr + "3";
       else if (kByte2 == four)
-        kMsg += "4";
+        kMsg += btnStr + "4";
       else if (kByte2 == five)
-        kMsg += "5";
+        kMsg += btnStr + "5";
       else if (kByte2 == six)
-        kMsg += "6";
+        kMsg += btnStr + "6";
       else if (kByte2 == seven)
-        kMsg += "7";
+        kMsg += btnStr + "7";
       else if (kByte2 == eight)
-        kMsg += "8";
+        kMsg += btnStr + "8";
       else if (kByte2 == nine)
-        kMsg += "9";
+        kMsg += btnStr + "9";
       else if (kByte2 == aster)
-        kMsg += "*";
+        kMsg += btnStr + "*";
       else if (kByte2 == zero)
-        kMsg += "0";
+        kMsg += btnStr + "0";
       else if (kByte2 == pound)
-        kMsg += "#";
+        kMsg += btnStr + "#";
       else if (kByte2 == stay)
-        kMsg += F("Stay");
+        kMsg += btnStr + F("Stay");
       else if (kByte2 == away)
-        kMsg += F("Away");
+        kMsg += btnStr + F("Away");
       else if (kByte2 == chime)
-        kMsg += F("Chime");
+        kMsg += btnStr + F("Chime");
       else if (kByte2 == reset)
-        kMsg += F("Reset");
+        kMsg += btnStr + F("Reset");
       else if (kByte2 == kExit)
-        kMsg += F("Exit");
+        kMsg += btnStr + F("Exit");
       else if (kByte2 == lArrow)  // These arrow commands don't work every time
-        kMsg += F("<");
+        kMsg += btnStr + F("<");
       else if (kByte2 == rArrow)  // They are often reverse for unknown reasons
-        kMsg += F(">");
+        kMsg += btnStr + F(">");
       else if (kByte2 == kOut)
         kMsg += F("[Keypad Response]");
       else {
-        kMsg += "0x" + String(kByte2, HEX) + " (Unknown)";
+        kMsg += "[Keypad] 0x" + String(kByte2, HEX) + " (Unknown)";
       }
     }
 
     if (cmd == fire)
-      kMsg += F("[Button] Fire");
+      kMsg += btnStr + F("Fire");
     if (cmd == aux)
-      kMsg += F("[Button] Auxillary");
+      kMsg += btnStr + F("Auxillary");
     if (cmd == panic)
-      kMsg += F("[Button] Panic");
+      kMsg += btnStr + F("Panic");
     
     return cmd;     // Return success
   }
