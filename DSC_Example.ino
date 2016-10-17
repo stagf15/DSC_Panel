@@ -11,20 +11,6 @@
 //      download the CRC32 library from the github above and include it in your sketch
 //      (Though up till this point [29 Sep 16] I am not sure what it does...
 //
-// Versions:
-// 1.0 - 3 Sep 16 
-//      -- Original sketch obtained from: https://github.com/emcniece/Arduino-Keybus
-//      -- Additional code segments added from: http://www.avrfreaks.net/forum/dsc-keybus-protocol
-//      -- The arduino will process the lines of binary data from the DSC panel on the
-//         keybus, while listening for connections via an Arduino ethernet shield
-//      -- The connection acts as a TCP "Serial Monitor", streaming the output over TCP, and 
-//         can be accessed by navigating to the IP address in the initialization message on the 
-//         serial monitor, followed by /STREAM.  (Example:  http://192.168.1.45/STREAM)
-// 1.1 - Added ability to read Keypad messages from the data line on the downward flank of 
-//       the clock signal. (May still need work on timing, but data seems good)
-// 1.2 - Changed timing and logic involved with reading and processing words from the keypad
-//       and panel to make it more reliable
-// 1.3 - 
 //
 
 #include <SPI.h>
