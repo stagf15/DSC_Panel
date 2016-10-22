@@ -59,7 +59,7 @@ void loop()
   if (dscGlobal.pCmd) {
     // ------------ Print the formatted raw data ------------
     //Serial.print(message.getBuffer());  // Prints unformatted word to serial
-    Serial.println(dsc.pnlBinary());
+    Serial.println(dsc.pnlFormat());
 
     message.clear();                      // Clear the message Buffer (this sets first byte to 0)
     message.print(formatTime(now()));     // Add the time stamp
@@ -79,7 +79,7 @@ void loop()
   if (dscGlobal.kCmd) {
     // ------------ Print the formatted raw data ------------
     //Serial.print(message.getBuffer());  // Prints unformatted word to serial
-    Serial.println(dsc.kpdBinary());
+    Serial.println(dsc.kpdFormat());
   
     message.clear();                      // Clear the message Buffer (this sets first byte to 0)
     message.print(formatTime(now()));     // Add the time stamp
