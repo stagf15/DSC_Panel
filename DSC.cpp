@@ -133,6 +133,9 @@ void clkCalled_Handler()
 
 int DSC::process(void)
   {
+    // ------------ Get/process incoming data -------------
+    dscGlobal.pCmd = 0, 
+    dscGlobal.kCmd = 0; 
     timeAvailable = false;      // Set the time element status to invalid
     
     // ----------------- Turn on/off LED ------------------
@@ -140,10 +143,6 @@ int DSC::process(void)
       digitalWrite(LED, 0);     // Turn LED OFF (no recent status command [0x05])
     else
       digitalWrite(LED, 1);     // Turn LED ON  (recent status command [0x05])
-    
-    // ---------------- Get/process incoming data ----------------
-    dscGlobal.pCmd = 0, 
-    dscGlobal.kCmd = 0; 
     
     /*
      * The normal clock frequency is 1 Hz or one cycle every ms (1000 us) 
@@ -401,10 +400,11 @@ byte DSC::decodeKeypad(void)
     }
   }
 
-const char* DSC::pnlBinary(void)
+const char* DSC::pnlFormat(void)
   {
+    if (!dscGlobal.pCmd) return NULL;       // return failure
     // Formats the panel binary string into bytes of binary data in the form:
-    // 8 1 8 8 8 8 8 etc, and then prints each segment 
+    // 8 1 8 8 8 8 8 etc, and returns a pointer to the buffer 
     pInfo.clear();
     pInfo.print("[Panel]  ");
 
@@ -426,13 +426,44 @@ const char* DSC::pnlBinary(void)
 
     if (pnlChkSum(dscGlobal.pWord)) pInfo.print(" (OK)");
 
-    return pInfo.getBuffer();
+    return pInfo.getBuffer();               // return the pointer
   }
 
-const char* DSC::kpdBinary(void)
+const char* DSC::pnlRaw(void)
   {
+    if (!dscGlobal.pCmd) return NULL;       // return failure
+    // Puts the raw word into a buffer and returns a pointer to the buffer
+    pInfo.clear();
+    pInfo.print("[Panel]  ");
+    
+    for(int i=0;i<dscGlobal.pWord.length();i++) {
+      pInfo.print(dscGlobal.pWord[i]);
+    }
+    
+    if (pnlChkSum(dscGlobal.pWord)) pInfo.print(" (OK)");
+    
+    return pInfo.getBuffer();               // return the pointer
+  }
+
+const char* DSC::kpdRaw(void)
+  {
+    if (!dscGlobal.kCmd) return NULL;       // return failure
+    // Puts the raw word into a buffer and returns a pointer to the buffer
+    kInfo.clear();
+    kInfo.print("[Keypad] ");
+    
+    for(int i=0;i<dscGlobal.kWord.length();i++) {
+      kInfo.print(dscGlobal.kWord[i]);
+    }
+    
+    return kInfo.getBuffer();               // return the pointer
+  }
+
+const char* DSC::kpdFormat(void)
+  {
+    if (!dscGlobal.kCmd) return NULL;       // return failure
     // Formats the referenced string into bytes of binary data in the form:
-    // 8 8 8 8 8 8 etc, and then prints each segment
+    // 8 8 8 8 8 8 etc, and returns a pointer to the buffer 
     kInfo.clear();
     kInfo.print("[Keypad] ");
     
@@ -448,7 +479,7 @@ const char* DSC::kpdBinary(void)
     else
       kInfo.print(binToChar(dscGlobal.kWord, 0, dscGlobal.kWord.length()));
 
-    return kInfo.getBuffer();
+    return kInfo.getBuffer();               // return the pointer
   }
 
 int DSC::pnlChkSum(String &dataStr)
