@@ -44,11 +44,11 @@ void loop()
 
   if (dscGlobal.pCmd) {
     // ------------ Print the Binary Panel Word ------------
-    Serial.print(F("[Panel]  "));
-    Serial.println(dscGlobal.pWord);
+    //Serial.print(F("[Panel]  "));
+    Serial.println(dsc.pnlRaw());
 
     // ------------ Print the Formatted Panel Word ------------
-    Serial.println(dsc.pnlBinary());
+    Serial.println(dsc.pnlFormat());
 
     // ------------ Print the decoded Panel Message ------------
     Serial.print("---> ");
@@ -63,11 +63,11 @@ void loop()
 
   if (dscGlobal.kCmd) {
     // ------------ Print the Binary Keypad Word ------------
-    Serial.print(F("[Keypad] "));
-    Serial.println(dscGlobal.kWord);    
+    //Serial.print(F("[Keypad] "));
+    Serial.println(dsc.kpdRaw());    
 
     // ------------ Print the Formatted Keypad Word ------------
-    Serial.println(dsc.kpdBinary());
+    Serial.println(dsc.kpdFormat());
 
     // ------------ Print the decoded Keypad Message ------------
     Serial.print("---> ");
