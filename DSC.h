@@ -55,9 +55,13 @@ class DSC : public Print  // Initialize DSC as an extension of the print class
     // Ends, or de-constructs the class - NOT USED  
     //int end();
     
-    // Prints the panel and keypad word in formatted binary (returns 0 as default)
-    const char* pnlBinary(void);
-    const char* kpdBinary(void);
+    // Returns the panel and keypad word in formatted binary (returns NULL if failure)
+    const char* pnlFormat(void);
+    const char* kpdFormat(void);
+    
+    // Returns the panel and keypad word in raw binary (returns NULL if failure)
+    const char* pnlRaw(void);
+    const char* kpdRaw(void);
     
     // Returns 1 if there is a valid checksum, 0 if not
     int pnlChkSum(String &dataStr);
