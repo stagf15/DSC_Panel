@@ -45,10 +45,9 @@ void loop()
 {  
  
   // --------------- Print No Data Message -------------- (FOR DEBUG PURPOSES)
-  if ((millis() - dscGlobal.lastData) > 20000) {
-    // Print no data message if there is no new data in XX time (ms)
-    Serial.println(F("--- No data for 20 seconds ---"));  
-    dscGlobal.lastData = millis();          // Reset the timer
+  if (dsc.timeout()) {
+    // Print no data message if there is DSC library shows timout
+    Serial.println(F("--- No data ---"));  
   }
 
   // ---------------- Get/process incoming data ----------------
@@ -56,41 +55,39 @@ void loop()
 
   if (dsc.timeAvailable) setDscTime();    // Attempt to update the system time
 
-  if (dscGlobal.pCmd) {
+  if (dsc.get_pCmd()) {
     // ------------ Print the formatted raw data ------------
-    //Serial.print(message.getBuffer());  // Prints unformatted word to serial
-    Serial.println(dsc.pnlFormat());
+    Serial.println(dsc.get_pnlFormat());
 
     message.clear();                      // Clear the message Buffer (this sets first byte to 0)
     message.print(formatTime(now()));     // Add the time stamp
     message.print(" ");
-    if (String(dscGlobal.pCmd,HEX).length() == 1)
+    if (String(dsc.get_pCmd(),HEX).length() == 1)
       message.print("0");                 // Write a leading zero to a single digit HEX
-    message.print(String(dscGlobal.pCmd,HEX));
+    message.print(String(dsc.get_pCmd(),HEX));
     message.print("(");
-    message.print(dscGlobal.pCmd);
+    message.print(dsc.get_pCmd());
     message.print("): ");
-    message.println(dscGlobal.pMsg);
+    message.println(dsc.get_pMsg());
   
     // ------------ Print the message ------------
     Serial.print(message.getBuffer());
   }
 
-  if (dscGlobal.kCmd) {
+  if (dsc.get_kCmd()) {
     // ------------ Print the formatted raw data ------------
-    //Serial.print(message.getBuffer());  // Prints unformatted word to serial
-    Serial.println(dsc.kpdFormat());
+    Serial.println(dsc.get_kpdFormat());
   
     message.clear();                      // Clear the message Buffer (this sets first byte to 0)
     message.print(formatTime(now()));     // Add the time stamp
     message.print(" ");
-    if (String(dscGlobal.kCmd,HEX).length() == 1)
+    if (String(dsc.get_kCmd(),HEX).length() == 1)
       message.print("0");                 // Write a leading zero to a single digit HEX
-    message.print(String(dscGlobal.kCmd,HEX));
+    message.print(String(dsc.get_kCmd(),HEX));
     message.print("(");
-    message.print(dscGlobal.kCmd);
+    message.print(dsc.get_kCmd());
     message.print("): ");
-    message.println(dscGlobal.kMsg);
+    message.println(dsc.get_kMsg());
 
     // ------------ Print the message ------------
     Serial.print(message.getBuffer());
