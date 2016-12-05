@@ -39,45 +39,49 @@ void setup()
 
 void loop()
 {  
-  // ---------------- Get/process incoming data ----------------
-  if (!dsc.process()) return;
+  // --------------- Print No Data Message -------------- (FOR DEBUG PURPOSES)
+  if (dsc.timeout()) {
+    // Print no data message if there is DSC library shows timout
+    Serial.println(F("--- No data ---"));  
+  }
 
-  if (dscGlobal.pCmd) {
+  // ---------------- Get/process incoming data ----------------
+  if (dsc.process() < 1) return;
+
+  if (dsc.get_pCmd()) {
     // ------------ Print the Binary Panel Word ------------
-    //Serial.print(F("[Panel]  "));
-    Serial.println(dsc.pnlRaw());
+    Serial.println(dsc.get_pnlRaw());
 
     // ------------ Print the Formatted Panel Word ------------
-    Serial.println(dsc.pnlFormat());
+    Serial.println(dsc.get_pnlFormat());
 
     // ------------ Print the decoded Panel Message ------------
     Serial.print("---> ");
-    if (String(dscGlobal.pCmd,HEX).length() == 1)
+    if (String(dsc.get_pCmd(),HEX).length() == 1)
       Serial.print("0");                  // Write a leading zero to a single digit HEX
-    Serial.print(String(dscGlobal.pCmd,HEX));
+    Serial.print(String(dsc.get_pCmd(),HEX));
     Serial.print("(");
-    Serial.print(dscGlobal.pCmd);
+    Serial.print(dsc.get_pCmd());
     Serial.print("): ");
-    Serial.println(dscGlobal.pMsg);
+    Serial.println(dsc.get_pMsg());
   }
 
-  if (dscGlobal.kCmd) {
+  if (dsc.get_kCmd()) {
     // ------------ Print the Binary Keypad Word ------------
-    //Serial.print(F("[Keypad] "));
-    Serial.println(dsc.kpdRaw());    
+    Serial.println(dsc.get_kpdRaw());    
 
     // ------------ Print the Formatted Keypad Word ------------
-    Serial.println(dsc.kpdFormat());
+    Serial.println(dsc.get_kpdFormat());
 
     // ------------ Print the decoded Keypad Message ------------
     Serial.print("---> ");
-    if (String(dscGlobal.kCmd,HEX).length() == 1)
+    if (String(dsc.get_kCmd(),HEX).length() == 1)
       Serial.print("0");                  // Write a leading zero to a single digit HEX
-    Serial.print(String(dscGlobal.kCmd,HEX));
+    Serial.print(String(dsc.get_kCmd(),HEX));
     Serial.print("(");
-    Serial.print(dscGlobal.kCmd);
+    Serial.print(dsc.get_kCmd());
     Serial.print("): ");
-    Serial.println(dscGlobal.kMsg);
+    Serial.println(dsc.get_kMsg());
   }
 }
 
