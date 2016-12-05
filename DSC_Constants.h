@@ -12,11 +12,19 @@
 #ifndef DSC_Constants_h
 #define DSC_Constants_h
 
-// ----- Word/Timing Constants -----
-const byte MAX_BITS = 128;        // The length at which to overflow (max 255)
-const byte WORD_BITS = 108;       // The expected length of a word (max 255)
-const int NEW_WORD_INTV = 5200;   // New word indicator interval in us (Microseconds)
-const byte ARR_SIZE = 12;         // (max 255)   // NOT USED
+// ----- Word Timing Constants -----
+  /*
+   * The following constants may be adjusted however the memory capability of
+   * the specific board being used must be taken into account.
+  */
+const byte MAX_BITS = 164;          // The length at which to overflow (max 255)
+const byte WORD_BITS = 108;         // The expected length of a word (max 255)
+const byte MSG_BITS = 80;           // The expected length of a message (max 255)
+const byte ARR_SIZE = 12;           // (max 255)   // NOT USED
+
+// ----- Word Size Constants -----
+const int NEW_WORD_INTV = 5200;     // New word indicator interval in us (Micros)
+const int NO_DATA_TIMEOUT = 20000;  // Time to flag indicating no data (Millis)
 
 // ------ HEX LOOK-UP ARRAY ------
 const char hex[] = "0123456789abcdef";  // HEX alphanumerics look-up array
