@@ -1,105 +1,62 @@
-/* DSC_Globals.h
+/* DSC_Constants.h
  * Part of DSC Library 
  * See COPYRIGHT.txt and LICENSE.txt for more information.
  *
- * It contains definition of global items which are used by the DSC class.
- * They have to be declared global in scope because they are accessed by
+ * It contains all of the constants used by the DSC class.
+ * They have to be declared global in scope because they may be accessed by
  * the ISR and you cannot pass parameters nor objects to an ISR routine.
  * 
  * In general, applications would not include this file. 
  */
-#ifndef DSC_Globals_h
-#define DSC_Globals_h
-#include <Arduino.h>
-#include "DSC_Constants.h"
+ 
+#ifndef DSC_Constants_h
+#define DSC_Constants_h
 
-/* 
- * OLD STUFF - In case I need it
- * Timing data is stored in a buffer by the receiver object. It is an array of
- * uint16_t that should be at least 100 entries as defined by this default below.
- * However some IR sequences will require longer buffers especially those used for
- * air conditioner controls. In general we recommend you keep this value below 255
- * so that the index into the array can remain 8 bits. This library can handle larger 
- * arrays however it will make your code longer in addition to taking more RAM.
+// ----- Word Timing Constants -----
+  /*
+   * The following constants may be adjusted however the memory capability of
+   * the specific board being used must be taken into account.
+  */
+const byte MAX_BITS = 164;          // The length at which to overflow (max 255)
+const byte WORD_BITS = 108;         // The expected length of a word (max 255)
+const byte MSG_BITS = 80;           // The expected length of a message (max 255)
+const byte ARR_SIZE = 12;           // (max 255)   // NOT USED
 
-#define PNL_BUF_LENGTH 128
-#define KPD_BUF_LENGTH 128
-#if (PNL_BUF_LENGTH > 255)
-	typedef uint16_t bufIndex_t;
-#else
-	typedef uint8_t bufIndex_t;
-#endif
-#if (KPD_BUF_LENGTH > 255)
-	typedef uint16_t bufIndex_t;
-#else
-	typedef uint8_t bufIndex_t;
-#endif
- */
+// ----- Word Size Constants -----
+const int NEW_WORD_INTV = 5200;     // New word indicator interval in us (Micros)
+const int NO_DATA_TIMEOUT = 20000;  // Time to flag indicating no data (Millis)
 
-// ----- Input/Output Pins -----
-extern byte CLK;         // Keybus Yellow (Clock Line)
-extern byte DTA_IN;      // Keybus Green (Data Line via V divider)
-extern byte DTA_OUT;     // Keybus Green Output (Data Line through driver)
-extern byte LED;         // LED pin on the arduino
+// ------ HEX LOOK-UP ARRAY ------
+const char hex[] = "0123456789abcdef";  // HEX alphanumerics look-up array
 
-/*
- * OLD STUFF - In case I need it
- * Receiver states. This previously was enum but changed it to uint8_t
- * to guarantee it was a single atomic 8-bit value.
-#define  STATE_UNKNOWN 0
-#define  STATE_NEW_WORD_MARK 1
-#define  STATE_TIMING_MARK 2
-#define  STATE_TIMING_SPACE 3
-#define  STATE_FINISHED 4
-#define  STATE_RUNNING 5
-typedef uint8_t  currentState_t;
-*/
-
-/* The structure contains information used by the ISR routine. Because we cannot
- * pass parameters to an ISR, vars must be global. Values which can be changed by
- * the ISR but are accessed outside the ISR must be volatile (for the most part)
- */
-
-typedef struct 
-{  
-  // ----- Time Variables -----
-  unsigned long lastStatus;
-  unsigned long lastData;
-  
-  // Volatile time variables, modified within ISR
-  volatile unsigned long intervalTimer;   
-  volatile unsigned long clockChange;
-  volatile unsigned long lastChange;      
-  volatile unsigned long lastRise;      // NOT USED
-  volatile unsigned long lastFall;      // NOT USED
-  
-  // ----- Keybus Bit/Byte Counter -----
-  volatile byte bitCount;      
-  } 
-timing_t;
-extern  timing_t timing;                //declared in DSC.cpp
-
-typedef struct 
-{  
-  // ----- Keybus Word Command Var -----
-  byte cmd;
-  
-  // ----- Keybus Bit/Byte Counters -----
-  volatile byte bit; 
-  volatile byte elem;                   // Using "elem" as element instead of "byte"
-  
-  // ----- Keybus Byte Arrays -----
-  volatile byte newArray[ARR_SIZE];
-  volatile byte array[ARR_SIZE];
-  volatile byte oldArray[ARR_SIZE]; 
-  
-  // ----- Keybus Byte Lengths -----
-  volatile byte newArrayLen;
-  volatile byte arrayLen;               //oldLen;
-} 
-keybus_t;
-
-extern  keybus_t panel;                 //declared in DSC.cpp
-extern  keybus_t keypad;                //declared in DSC.cpp
+// ----- KEYPAD BUTTON VALUES -----
+const byte kOut   = 0xff;   // 11111111 (dec: 255) Usual 1st byte from keypad
+const byte k_ff   = 0xff;   // 11111111 (dec: 255) Keypad CRC checksum 1?
+const byte k_7f   = 0x7f;   // 01111111 (dec: 127) Keypad CRC checksum 2?
+// The following buttons data are in the 2nd byte:
+const byte one    = 0x82;   // 10000010 (dec: 130) 
+const byte two    = 0x85;   // 10000101 (dec: 133) 
+const byte three  = 0x87;   // 10000111 (dec: 135) 
+const byte four   = 0x88;   // 10001000 (dec: 136) 
+const byte five   = 0x8b;   // 10001011 (dec: 139) 
+const byte six    = 0x8d;   // 10001101 (dec: 141) 
+const byte seven  = 0x8e;   // 10001110 (dec: 142) 
+const byte eight  = 0x91;   // 10010001 (dec: 145) 
+const byte nine   = 0x93;   // 10010011 (dec: 147) 
+const byte aster  = 0x94;   // 10010100 (dec: 148) 
+const byte zero   = 0x80;   // 10000000 (dec: 128) 
+const byte pound  = 0x96;   // 10010110 (dec: 150) 
+const byte stay   = 0xd7;   // 11010111 (dec: 215) 
+const byte away   = 0xd8;   // 11011000 (dec: 216) 
+const byte chime  = 0xdd;   // 11011101 (dec: 221) 
+const byte reset  = 0xed;   // 11101101 (dec: 237) 
+const byte kExit  = 0xf0;   // 11110000 (dec: 270) 
+const byte lArrow = 0xfb;   // 11111011 (dec: 251) 
+const byte rArrow = 0xf7;   // 11110111 (dec: 247) 
+// The following button's data are in the 1st byte, and these 
+//   seem to be sent twice, with a panel response in between:
+const byte fire   = 0xbb;   // 10111011 (dec: 187) 
+const byte aux    = 0xdd;   // 11011101 (dec: 221) 
+const byte panic  = 0xee;   // 11101110 (dec: 238) 
 
 #endif
