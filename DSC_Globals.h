@@ -11,8 +11,11 @@
 #ifndef DSC_Globals_h
 #define DSC_Globals_h
 #include <Arduino.h>
+#include "DSC_Constants.h"
 
-/* Timing data is stored in a buffer by the receiver object. It is an array of
+/* 
+ * OLD STUFF - In case I need it
+ * Timing data is stored in a buffer by the receiver object. It is an array of
  * uint16_t that should be at least 100 entries as defined by this default below.
  * However some IR sequences will require longer buffers especially those used for
  * air conditioner controls. In general we recommend you keep this value below 255
@@ -40,8 +43,9 @@ extern byte DTA_OUT;     // Keybus Green Output (Data Line through driver)
 extern byte LED;         // LED pin on the arduino
 
 /*
-// Receiver states. This previously was enum but changed it to uint8_t
-// to guarantee it was a single atomic 8-bit value.
+ * OLD STUFF - In case I need it
+ * Receiver states. This previously was enum but changed it to uint8_t
+ * to guarantee it was a single atomic 8-bit value.
 #define  STATE_UNKNOWN 0
 #define  STATE_NEW_WORD_MARK 1
 #define  STATE_TIMING_MARK 2
@@ -55,31 +59,68 @@ typedef uint8_t  currentState_t;
  * pass parameters to an ISR, vars must be global. Values which can be changed by
  * the ISR but are accessed outside the ISR must be volatile (for the most part)
  */
- 
+
 typedef struct 
 {  
-  // ----- Keybus Word String Vars -----
-  String pBuild, pWord, oldPWord, pMsg;
-  String kBuild, kWord, oldKWord, kMsg;
-  byte pCmd, kCmd;
-  
   // ----- Time Variables -----
   unsigned long lastStatus;
   unsigned long lastData;
+  
   // Volatile time variables, modified within ISR
   volatile unsigned long intervalTimer;   
   volatile unsigned long clockChange;
   volatile unsigned long lastChange;      
-  volatile unsigned long lastRise;        // NOT USED
-  volatile unsigned long lastFall;        // NOT USED
+  volatile unsigned long lastRise;      // NOT USED
+  volatile unsigned long lastFall;      // NOT USED
   
-  volatile bool newWord;                  // NOT USED
+  // ----- Keybus Bit/Byte Counter -----
+  volatile byte bitCount;      
+  } 
+timing_t;
+extern  timing_t timing;                //declared in DSC.cpp
+
+typedef struct 
+{  
+  // ----- Keybus Word Command Var -----
+  byte cmd;
   
-  // ----- Byte Arrays -----
-  byte pBytes[];  // NOT USED
-  byte kBytes[];  // NOT USED
+  // ----- Keybus Bit/Byte Counters -----
+  volatile byte bit; 
+  volatile byte elem;                   // Using "elem" as element instead of "byte"
+  
+  // ----- Keybus Byte Arrays -----
+  volatile byte newArray[ARR_SIZE];
+  volatile byte array[ARR_SIZE];
+  volatile byte oldArray[ARR_SIZE]; 
+  
+  // ----- Keybus Byte Lengths -----
+  volatile byte newArrayLen;
+  volatile byte arrayLen;               //oldLen;
 } 
-dscGlobal_t;
-extern  dscGlobal_t dscGlobal;  //declared in DSC.cpp
+keybus_t;
+
+extern  keybus_t panel;                 //declared in DSC.cpp
+extern  keybus_t keypad;                //declared in DSC.cpp
+
+typedef struct 
+{  
+  // ----- Send wait/readiness status -----
+  volatile bool waiting;
+  volatile bool ready;
+  volatile bool sent;
+
+  // ----- Keybus Bit/Byte Counters -----
+  volatile byte bit; 
+  volatile byte elem;                   // Using "elem" as element instead of "byte"
+  
+  // ----- Keybus Byte Arrays -----
+  volatile byte array[ARR_SIZE];
+  
+  // ----- Keybus Byte Lengths -----
+  volatile byte arrayLen;               
+} 
+keysend_t;
+
+extern  keysend_t keysend;              //declared in DSC.cpp
 
 #endif
