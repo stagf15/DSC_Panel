@@ -17,6 +17,7 @@
 timing_t  timing;
 keybus_t  panel;
 keybus_t  keypad;
+keysend_t keysend;
 
 // ----- Input/Output Pins (Global, defined in DSC_Globals.h) -----
 byte CLK;         // Keybus Yellow (Clock Line)
@@ -37,6 +38,7 @@ void wordSet(byte *a, int b, byte len);
 //TextBuffer kTempByte(12);       // Initialize TextBuffer.h for temp keypad byte buffer
 
 TextBuffer tempByte(12);          // Initialize TextBuffer.h for temp generic byte buffer 
+//TextBuffer sendBuffer(52);        // Initialize TextBuffer.h for sent keypad word
 TextBuffer pBuffer(WORD_BITS);    // Initialize TextBuffer.h for panel word
 TextBuffer pMsg(MSG_BITS);        // Initialize TextBuffer.h for panel message
 TextBuffer kBuffer(WORD_BITS);    // Initialize TextBuffer.h for keypad word
@@ -71,25 +73,31 @@ DSC::DSC(void)
     LED      = 13;   // LED pin on the arduino Uno
 
     // ----- Keybus Word Byte Array Vars -----
+    // Panel Array Data
     wordSet(panel.newArray, 0, ARR_SIZE);
     wordSet(panel.array, 0, ARR_SIZE);
     wordSet(panel.oldArray, 0, ARR_SIZE);
     panel.bit = 0, panel.elem = 0;
     
+    // Keypad Receive Data
     wordSet(keypad.newArray, 0, ARR_SIZE);
     wordSet(keypad.array, 0, ARR_SIZE);
     wordSet(keypad.oldArray, 0, ARR_SIZE);
     keypad.bit = 0, keypad.elem = 0;
+    
+    // Keypad Send Data
+    wordSet(keysend.array, 0, 4);           // Send arrays only need 4 bytes of data MAX
+    keysend.bit = 0, keysend.elem = 0;
+    keysend.waiting = false, keysend.ready = true, keysend.sent = false;
 
-    // ----- Keybus Word Byte Lengths -----
+    // ----- Keybus Word Length Variables -----
     panel.newArrayLen = 0, panel.arrayLen = 0; //panel.oldLen = 0; 
     keypad.newArrayLen = 0, keypad.arrayLen = 0; //keypad.oldLen = 0; 
+    keysend.arrayLen = 0;
 
+    // ----- Keybus Command Byte Values -----
     panel.cmd = 0, keypad.cmd = 0;
     
-    byteBuf1 = "";
-    byteBuf2 = "";
-    byteBuf3 = "";
   }
 
 int DSC::addSerial(void)
@@ -105,6 +113,7 @@ void DSC::begin(void)
     pinMode(LED, OUTPUT);
 
     tempByte.begin();         // Begin the generic tempByte buffer, allocate memory
+    //sendBuffer.begin();       // Begin the keypad send word buffer, allocate memory
     pBuffer.begin();          // Begin the panel word buffer, allocate memory
     pMsg.begin();             // Begin the panel message buffer, allocate memory
     kBuffer.begin();          // Begin the keypad word buffer, allocate memory
@@ -126,6 +135,7 @@ void DSC::begin(void)
  */
 void clkCalled_Handler() 
   { 
+    digitalWrite(DTA_OUT, 0);                 // Reset the data line
     timing.clockChange = micros();                  // Save the current clock change time 
     timing.intervalTimer =  
         (timing.clockChange - timing.lastChange);   // Determine interval since last clock change 
@@ -161,9 +171,43 @@ void clkCalled_Handler()
     
     else {                                  // Otherwise, it's going LOW, this is KEYPAD data 
       timing.lastFall = timing.lastChange;  // Set the lastFall time 
-
-      if (keypad.elem < ARR_SIZE) {      	  // Limit the array to X bytes  
-        //delayMicroseconds(200);           // Delay for 300 us to get a valid data line read 
+      
+      if (keysend.waiting && keypad.newArrayLen == 0) {
+        // Send virtual keypad data
+        byte writeBit = 0;
+        if (keysend.bit == 0) if (keysend.array[keysend.elem] > 127) {
+          keysend.array[keysend.elem] -= 128; writeBit = 1; }
+        if (keysend.bit == 1) if (keysend.array[keysend.elem] > 63) {
+          keysend.array[keysend.elem] -= 64; writeBit = 1; }
+        if (keysend.bit == 2) if (keysend.array[keysend.elem] > 31) {
+          keysend.array[keysend.elem] -= 32; writeBit = 1; }
+        if (keysend.bit == 3) if (keysend.array[keysend.elem] > 15) {
+          keysend.array[keysend.elem] -= 16; writeBit = 1; }
+        if (keysend.bit == 4) if (keysend.array[keysend.elem] > 7) {
+          keysend.array[keysend.elem] -= 8; writeBit = 1; }
+        if (keysend.bit == 5) if (keysend.array[keysend.elem] > 3) {
+          keysend.array[keysend.elem] -= 4; writeBit = 1; }
+        if (keysend.bit == 6) if (keysend.array[keysend.elem] > 1) {
+          keysend.array[keysend.elem] -= 2; writeBit = 1; }
+        if (keysend.bit == 7) if (keysend.array[keysend.elem] > 0) {
+          keysend.array[keysend.elem] -= 1; writeBit = 1; }
+        if (writeBit == 0) digitalWrite(DTA_OUT, 1);  // Pull the data line low
+        //sendBuffer.print(writeBit);                   // Write the bit to the send buffer
+        
+        // Increment the keysend elem (byte) and bit counters as required
+        if (keysend.bit < 7) 
+          keysend.bit++;
+        else { 
+          keysend.elem++; keysend.bit = 0; }          // Increment kByte counter if 8 bits
+        if (keysend.elem == 4 && keysend.bit == 7) {  // Sending is complete
+          keysend.waiting = false;
+          keysend.ready = true;
+          keysend.sent = true;
+        }
+      }
+      
+      else if (keypad.elem < ARR_SIZE) {      // Limit the array to X bytes  
+        //delayMicroseconds(200);             // Delay for 300 us to get a valid data line read 
         keypad.newArray[keypad.elem] <<= 1;
         if (digitalRead(DTA_IN)) keypad.newArray[keypad.elem] |= 1;  
         keypad.newArrayLen++;
@@ -171,8 +215,8 @@ void clkCalled_Handler()
         if (keypad.bit < 7) 
           keypad.bit++;
         else { 
-          keypad.elem++; keypad.bit = 0; }  // Increment kByte counter if 8 bits
-      } 
+          keypad.elem++; keypad.bit = 0; }    // Increment kByte counter if 8 bits
+      }
     } 
   }
 
@@ -243,12 +287,11 @@ byte DSC::decodePanel(void)
         if (byteToInt(panel.array,16,1,1))    pMsg.print(F("Ready"));
         else {
           if (!byteToInt(panel.array,15,1,1)) pMsg.print(F("Not Ready"));
-          else                                pMsg.print(F("Armed")); }
-                                           
+          else                                pMsg.print(F("Armed")); 
+        }
         if (byteToInt(panel.array,12,1,1))    pMsg.print(F(", Error"));
         if (byteToInt(panel.array,13,1,1))    pMsg.print(F(", Bypass"));
         if (byteToInt(panel.array,14,1,1))    pMsg.print(F(", Memory"));
-        
         if (byteToInt(panel.array,17,1,1))    pMsg.print(F(", Program"));
         if (byteToInt(panel.array,29,1,1))    pMsg.print(F(", Power Fail"));   // ??? - maybe 28 or 20?
       }
@@ -271,11 +314,11 @@ byte DSC::decodePanel(void)
         byte master = byteToInt(panel.array,43,1,1);
         byte user = byteToInt(panel.array,43,6,1); // 0-36
         if (arm == 0x02) {
-          pMsg.print(F(", Armed"));
+          pMsg.print(F("Armed"));
           user = user - 0x19;
         }
         if (arm == 0x03) {
-          pMsg.print(F(", Disarmed"));
+          pMsg.print(F("Disarmed"));
         }
         if (arm > 0) {
           if (master) pMsg.print(F(", Master Code")); 
@@ -298,7 +341,7 @@ byte DSC::decodePanel(void)
         if (zones & 32) pMsg.print("6 ");
         if (zones & 64) pMsg.print("7 ");
         if (zones & 128) pMsg.print("8 ");
-        if (zones == 0) pMsg.print("Ready ");
+        if (zones == 0) pMsg.print("Secure ");
       }
       
       if (cmd == 0x2d)
@@ -313,7 +356,7 @@ byte DSC::decodePanel(void)
         if (zones & 32) pMsg.print("14 ");
         if (zones & 64) pMsg.print("15 ");
         if (zones & 128) pMsg.print("16 ");
-        if (zones == 0) pMsg.print("Ready ");
+        if (zones == 0) pMsg.print("Secure ");
       }
       
       if (cmd == 0x34)
@@ -328,7 +371,7 @@ byte DSC::decodePanel(void)
         if (zones & 32) pMsg.print("22 ");
         if (zones & 64) pMsg.print("23 ");
         if (zones & 128) pMsg.print("24 ");
-        if (zones == 0) pMsg.print("Ready ");
+        if (zones == 0) pMsg.print("Secure ");
       }
       
       if (cmd == 0x3e)
@@ -343,7 +386,7 @@ byte DSC::decodePanel(void)
         if (zones & 32) pMsg.print("30 ");
         if (zones & 64) pMsg.print("31 ");
         if (zones & 128) pMsg.print("32 ");
-        if (zones == 0) pMsg.print("Ready ");
+        if (zones == 0) pMsg.print("Secure ");
       }
       // --- The other 32 zones for a 1864 panel need to be added after this ---
 
@@ -360,7 +403,7 @@ byte DSC::decodePanel(void)
       if (cmd == 0x69)
         pMsg.print(F("[Beep Command Group 2] "));
       if (cmd == 0x39)
-        pMsg.print(F("[Undefined command from panel] "));
+        pMsg.print(F("[Unknown Command] "));
       if (cmd == 0xb1)
         pMsg.print(F("[Zone Configuration] "));
         
@@ -611,7 +654,6 @@ int DSC::pnlChkSum(void)
     if (panel.arrayLen >= 17) {
       cSum += panel.array[0];
       int grps = (panel.arrayLen - 9) / 8; 
-      byteBuf2 = panel.arrayLen;
       for(int i=0;i<grps;i++) {
         if (i<(grps-1)) 
           cSum += panel.array[i + 2];
@@ -645,6 +687,24 @@ byte DSC::get_pCmd(void)
 byte DSC::get_kCmd(void)
   {
     return keypad.cmd;                    // return kCmd
+  }
+
+bool DSC::send_key(byte aa, byte bb, byte cc, byte dd)
+  {
+    if (!keysend.ready) return 0;         // return failure
+    if (aa == 0 && bb == 0 && cc == 0 && dd == 0) return 0;
+    
+    //sendBuffer.clear();                   // clear the send buffer
+    
+    keysend.array[0] = aa;
+    keysend.array[1] = bb;
+    keysend.array[2] = cc;
+    keysend.array[3] = dd;
+    
+    keysend.waiting = true;               // update the keysend status
+    keysend.ready = false;
+    
+    return 1;                             // return success
   }
 
 bool DSC::get_time(void)
