@@ -87,7 +87,7 @@ class DSC : public Print  // Initialize DSC as an extension of the print class
     
     // Conversion operation functions
     unsigned int binToInt(String &dataStr, int offset, int dataLen);
-    const char* binToChar(String &dataStr, int offset, int endData);    
+    //const char* binToChar(String &dataStr, int offset, int endData);  // not needed
     const String byteToBin(byte b, byte digits);
     unsigned int byteToInt(byte* dataArr, int offset, int dataLen, bool padding);
     
