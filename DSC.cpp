@@ -34,15 +34,11 @@ void wordCpy(byte *a, byte *b, byte len);
 // Prototype for wordSet, to reset each element of an array of length (len) to int b
 void wordSet(byte *a, int b, byte len);
 
-//TextBuffer pTempByte(12);       // Initialize TextBuffer.h for temp panel byte buffer
-//TextBuffer kTempByte(12);       // Initialize TextBuffer.h for temp keypad byte buffer
-
-TextBuffer tempByte(12);          // Initialize TextBuffer.h for temp generic byte buffer 
-//TextBuffer sendBuffer(52);        // Initialize TextBuffer.h for sent keypad word
-TextBuffer pBuffer(WORD_BITS);    // Initialize TextBuffer.h for panel word
+//TextBuffer tempByte(12);        // Initialize TextBuffer.h for temp generic byte buffer 
+TextBuffer wordBuf(WORD_BITS);    // Initialize TextBuffer.h for word text buffer
 TextBuffer pMsg(MSG_BITS);        // Initialize TextBuffer.h for panel message
-TextBuffer kBuffer(WORD_BITS);    // Initialize TextBuffer.h for keypad word
 TextBuffer kMsg(MSG_BITS);        // Initialize TextBuffer.h for keypad message
+TextBuffer sendBuf(52);           // Initialize TextBuffer.h for sent keypad word
 
 /// --- END GLOBAL VARIABLES ---
 
@@ -53,8 +49,8 @@ DSC::DSC(void)
     timing.intervalTimer = 0;   
     timing.clockChange = 0;
     timing.lastChange = 0;      
-    timing.lastRise = 0;         // NOT USED YET
-    timing.lastFall = 0;         // NOT USED YET
+    timing.lastRise = 0;            // NOT USED YET
+    timing.lastFall = 0;            // NOT USED YET
     
     // Time variables, based on millis()
     timing.lastStatus = 0;
@@ -91,13 +87,12 @@ DSC::DSC(void)
     keysend.waiting = false, keysend.ready = true, keysend.sent = false;
 
     // ----- Keybus Word Length Variables -----
-    panel.newArrayLen = 0, panel.arrayLen = 0; //panel.oldLen = 0; 
-    keypad.newArrayLen = 0, keypad.arrayLen = 0; //keypad.oldLen = 0; 
+    panel.newArrayLen = 0, panel.arrayLen = 0;
+    keypad.newArrayLen = 0, keypad.arrayLen = 0; 
     keysend.arrayLen = 0;
 
     // ----- Keybus Command Byte Values -----
     panel.cmd = 0, keypad.cmd = 0;
-    
   }
 
 int DSC::addSerial(void)
@@ -112,12 +107,11 @@ void DSC::begin(void)
     pinMode(DTA_OUT, OUTPUT);
     pinMode(LED, OUTPUT);
 
-    tempByte.begin();         // Begin the generic tempByte buffer, allocate memory
-    //sendBuffer.begin();       // Begin the keypad send word buffer, allocate memory
-    pBuffer.begin();          // Begin the panel word buffer, allocate memory
+    //tempByte.begin();       // Begin the generic tempByte buffer, allocate memory
+    wordBuf.begin();          // Begin the word buffer, allocate memory
     pMsg.begin();             // Begin the panel message buffer, allocate memory
-    kBuffer.begin();          // Begin the keypad word buffer, allocate memory
     kMsg.begin();             // Begin the keypad message buffer, allocate memory
+    sendBuf.begin();          // Begin the keypad send word buffer, allocate memory
 
     // Set the interrupt pin
     intrNum = digitalPinToInterrupt(CLK);
@@ -135,8 +129,8 @@ void DSC::begin(void)
  */
 void clkCalled_Handler() 
   { 
-    digitalWrite(DTA_OUT, 0);                 // Reset the data line
-    timing.clockChange = micros();                  // Save the current clock change time 
+    digitalWrite(DTA_OUT, 0);                 // Reset the data out line
+    timing.clockChange = micros();            // Save the current clock change time 
     timing.intervalTimer =  
         (timing.clockChange - timing.lastChange);   // Determine interval since last clock change 
     
@@ -149,28 +143,28 @@ void clkCalled_Handler()
       keypad.bit = 0;				                  // Reset the keypad bit counter to zero
       keypad.elem = 0; 				                // Reset the keypad byte counter to zero
     } 
-    timing.lastChange = timing.clockChange; // Re-save the current change time as last change time 
+    timing.lastChange = timing.clockChange;   // Re-save the current change time as last change time 
     
-    if (digitalRead(CLK)) {                 // If clock line is going HIGH, this is PANEL data 
-      timing.lastRise = timing.lastChange;  // Set the lastRise time    
+    if (digitalRead(CLK)) {                   // If clock line is going HIGH, this is PANEL data 
+      timing.lastRise = timing.lastChange;    // Set the lastRise time    
       
-      if (panel.elem < ARR_SIZE) {      	  // Limit the array to X bytes
-        //delayMicroseconds(120);           // Delay for 120 us to get a valid data line read 
+      if (panel.elem < ARR_SIZE) {      	    // Limit the array to X bytes
+        //delayMicroseconds(120);             // Delay for 120 us to get a valid data line read 
         panel.newArray[panel.elem] <<= 1;
         if (digitalRead(DTA_IN)) panel.newArray[panel.elem] |= 1; 
         panel.newArrayLen++;
         // Increment the panel elem (byte) and bit counters as required
         if (panel.elem == 0 and panel.bit == 7) { 
-          panel.elem = 1; panel.bit = 6; }  // Set the pByte/Bit counter for zero padding
+          panel.elem = 1; panel.bit = 6; }    // Set the pByte/Bit counter for zero padding
         if (panel.bit < 7) 
           panel.bit++;
         else { 
-          panel.elem++; panel.bit = 0; }    // Increment pByte counter if 8 bits
+          panel.elem++; panel.bit = 0; }      // Increment pByte counter if 8 bits
       } 
     } 
     
-    else {                                  // Otherwise, it's going LOW, this is KEYPAD data 
-      timing.lastFall = timing.lastChange;  // Set the lastFall time 
+    else {                                    // Otherwise, it's going LOW, this is KEYPAD data 
+      timing.lastFall = timing.lastChange;    // Set the lastFall time 
       
       if (keysend.waiting && keypad.newArrayLen == 0) {
         // Send virtual keypad data
@@ -191,8 +185,8 @@ void clkCalled_Handler()
           keysend.array[keysend.elem] -= 2; writeBit = 1; }
         if (keysend.bit == 7) if (keysend.array[keysend.elem] > 0) {
           keysend.array[keysend.elem] -= 1; writeBit = 1; }
-        if (writeBit == 0) digitalWrite(DTA_OUT, 1);  // Pull the data line low
-        //sendBuffer.print(writeBit);                   // Write the bit to the send buffer
+        if (writeBit == 0) digitalWrite(DTA_OUT, 1);  // Pull the data out line low
+        sendBuf.print(writeBit);                      // Write the bit to the send buffer
         
         // Increment the keysend elem (byte) and bit counters as required
         if (keysend.bit < 7) 
@@ -254,8 +248,8 @@ int DSC::process(void)
     panel.bit = 0;				                  // Reset the panel bit counter to zero
     panel.elem = 0; 				                // Reset the panel byte counter to zero
     
-    panel.cmd = decodePanel();        // Decode the panel binary, return command byte, or 0
-    keypad.cmd = decodeKeypad();      // Decode the keypad binary, return command byte, or 0
+    panel.cmd = decodePanel();              // Decode the panel binary, return command byte, or 0
+    keypad.cmd = decodeKeypad();            // Decode the keypad binary, return command byte, or 0
     
     if (panel.cmd && keypad.cmd) return 3;  // Return 3 if both were decoded
     else if (keypad.cmd) return 2;          // Return 2 if keypad word was decoded
@@ -266,6 +260,7 @@ int DSC::process(void)
 byte DSC::decodePanel(void) 
   {
     pMsg.clear();                     // Initialize panel message for output
+    
     // ------------- Process the Panel Data Word ---------------
     byte cmd = panel.array[0];        // Get the panel Cmd (data word type/command)
 
@@ -273,27 +268,39 @@ byte DSC::decodePanel(void)
       // Skip this word if the data hasn't changed, or pCmd is empty (0x00)
       return 0;     // Return failure
     }
+    
     else {     
       // This seems to be a valid word, try to process it  
       timing.lastData = millis();                     // Record the time (last data word was received)
       wordCpy(panel.array, panel.oldArray, ARR_SIZE); // This is a new/good word, save it   
-      //panel.oldLen = panel.arrayLen;                // Copy the word length
-      
-      // Interpret the data
+
+      // ------ DEBUG FILTERING ------
+      //if (cmd != 0x05 && cmd != 0x34 && cmd != 0xa5) return 0;
+      // -----------------------------
+
+      /* 
+       *  This section needs your help!  If you have time, please try to figure out 
+       *  what unknown command codes/words mean, and what data they contain!
+       */
       if (cmd == 0x05) 
       {
-        timing.lastStatus = millis();        // Record the time for LED logic
+        timing.lastStatus = millis();           // Record the time for LED logic
         pMsg.print(F("[Status] "));
-        if (byteToInt(panel.array,16,1,1))    pMsg.print(F("Ready"));
-        else {
-          if (!byteToInt(panel.array,15,1,1)) pMsg.print(F("Not Ready"));
-          else                                pMsg.print(F("Armed")); 
-        }
-        if (byteToInt(panel.array,12,1,1))    pMsg.print(F(", Error"));
-        if (byteToInt(panel.array,13,1,1))    pMsg.print(F(", Bypass"));
-        if (byteToInt(panel.array,14,1,1))    pMsg.print(F(", Memory"));
-        if (byteToInt(panel.array,17,1,1))    pMsg.print(F(", Program"));
-        if (byteToInt(panel.array,29,1,1))    pMsg.print(F(", Power Fail"));   // ??? - maybe 28 or 20?
+        if (byteToInt(panel.array,16,1,1))      pMsg.print(F("Ready"));
+        else  {                                  
+          if (byteToInt(panel.array,15,1,1))    pMsg.print(F("Armed"));
+          else                                  pMsg.print(F("Not Ready")); }
+        if (byteToInt(panel.array,10,1,1))      pMsg.print(F(", Fire"));
+        if (byteToInt(panel.array,12,1,1))      pMsg.print(F(", Error"));
+        if (byteToInt(panel.array,13,1,1))      pMsg.print(F(", Bypass"));
+        if (byteToInt(panel.array,14,1,1))      pMsg.print(F(", Memory"));
+        if (byteToInt(panel.array,17,1,1))      pMsg.print(F(", Program"));
+        if (byteToInt(panel.array,29,1,1))      pMsg.print(F(", Power Fail"));   // ??? - maybe 28 or 20?
+      
+        // ---------- These are in question ----------
+        if (byteToInt(panel.array,21,2,1) == 2) pMsg.print(F(", Exit Delay"));
+        if (byteToInt(panel.array,21,2,1) == 3) pMsg.print(F(", Alarm"));
+      
       }
      
       if (cmd == 0xa5)
@@ -389,6 +396,7 @@ byte DSC::decodePanel(void)
         if (zones == 0) pMsg.print("Secure ");
       }
       // --- The other 32 zones for a 1864 panel need to be added after this ---
+      //     - the hex command codes for these are unknown as far as I know
 
       if (cmd == 0x11) 
         pMsg.print(F("[Keypad Query] "));
@@ -399,7 +407,7 @@ byte DSC::decodePanel(void)
       if (cmd == 0x63)
         pMsg.print(F("[Alarm Memory Group 2] "));
       if (cmd == 0x64)
-        pMsg.print(F("[Beep Command Group 1] "));
+        pMsg.print(F("[3 Beeps] "));   //[Beep Command Group 1]
       if (cmd == 0x69)
         pMsg.print(F("[Beep Command Group 2] "));
       if (cmd == 0x39)
@@ -414,13 +422,13 @@ byte DSC::decodePanel(void)
 byte DSC::decodeKeypad(void) 
   {
     kMsg.clear();                       // Initialize keypad message for output 
+    
     // ------------- Process the Keypad Data Word ---------------
     byte cmd = keypad.array[0];         // Get the keypad Cmd (data word type/command)
     String btnStr = F("[Button] ");
     
     if ((keypad.array[0] == 255 && keypad.array[1] == 255 &&
-         keypad.array[2] == 255 && keypad.array[3] == 255) || 
-        (keypad.array[0] == 0x00)) {  
+         keypad.array[2] == 255) || (keypad.array[0] == 0x00)) {  
       // Skip this word if kArray is all 1's or kCmd is empty (0x00)
       return 0;     // Return failure
     }
@@ -429,9 +437,8 @@ byte DSC::decodeKeypad(void)
       // This seems to be a valid word, try to process it
       timing.lastData = millis();                       // Record the time (last data word was received)
       wordCpy(keypad.array, keypad.oldArray, ARR_SIZE); // This is a new/good word, save it   
-      //keypad.oldLen = keypad.arrayLen;                // Copy the word length
 
-      byte kByte2 = keypad.array[1]; //byteToInt(keypad.array,8,8,0); 
+      byte kByte2 = keypad.array[1]; 
       byte kByte3 = keypad.array[2];
       byte kByte4 = keypad.array[3];
      
@@ -486,7 +493,7 @@ byte DSC::decodeKeypad(void)
       if (cmd == fire) {
         kMsg.print(btnStr); kMsg.print(F("Fire")); }
       if (cmd == aux) {
-        kMsg.print(btnStr); kMsg.print(F("Auxillary")); }
+        kMsg.print(btnStr); kMsg.print(F("Aux")); }
       if (cmd == panic) {
         kMsg.print(btnStr); kMsg.print(F("Panic")); }
       
@@ -499,30 +506,30 @@ const char* DSC::get_pnlFormat(void)
     if (!panel.cmd) return NULL;          // return failure
     // Formats the panel word array into bytes of binary data in the form:
     // 8 1 8 8 8 8 8 etc, and returns a pointer to the buffer 
-    pBuffer.clear();
-    pBuffer.print("[Panel]  ");
+    wordBuf.clear();
+    wordBuf.print("[Panel]  ");
     int bitsRem = panel.arrayLen;
 
     if (panel.arrayLen > 8) {
-      pBuffer.print(byteToBin(panel.array[0], 8)); bitsRem -= 8;
-      pBuffer.print(" ");
-      pBuffer.print(panel.array[1]); bitsRem -= 1;
-      pBuffer.print(" ");
+      wordBuf.print(byteToBin(panel.array[0], 8)); bitsRem -= 8;
+      wordBuf.print(" ");
+      wordBuf.print(panel.array[1]); bitsRem -= 1;
+      wordBuf.print(" ");
       int grps = (panel.arrayLen - 2) / 8;
       for(int i=0;i<grps;i++) {
         if (bitsRem > 7) {
-          pBuffer.print(byteToBin(panel.array[i + 2], 8));
-          pBuffer.print(" "); }
-        else pBuffer.print(byteToBin(panel.array[i + 2], bitsRem));
+          wordBuf.print(byteToBin(panel.array[i + 2], 8));
+          wordBuf.print(" "); }
+        else wordBuf.print(byteToBin(panel.array[i + 2], bitsRem));
         bitsRem -= 8;
       }
     }
     else
-      pBuffer.print(byteToBin(panel.array[0], bitsRem));
+      wordBuf.print(byteToBin(panel.array[0], bitsRem));
 
-    if (pnlChkSum()) pBuffer.print(" (OK)");
+    if (pnlChkSum()) wordBuf.print(" (OK)");
 
-    return pBuffer.getBuffer();           // return the pointer
+    return wordBuf.getBuffer();           // return the pointer
   }
 
 const char* DSC::get_kpdFormat(void)
@@ -530,24 +537,24 @@ const char* DSC::get_kpdFormat(void)
     if (!keypad.cmd) return NULL;         // return failure
     // Formats the keypad word array into bytes of binary data in the form:
     // 8 8 8 8 8 8 etc, and returns a pointer to the buffer 
-    kBuffer.clear();
-    kBuffer.print("[Keypad] ");
+    wordBuf.clear();
+    wordBuf.print("[Keypad] ");
     int bitsRem = keypad.arrayLen;
     
     if (keypad.arrayLen > 8) {
       int grps = keypad.arrayLen / 8;
       for(int i=0;i<grps;i++) {
         if (bitsRem > 7) {
-          kBuffer.print(byteToBin(keypad.array[i], 8));
-          kBuffer.print(" "); }
-        else kBuffer.print(byteToBin(keypad.array[i], bitsRem));
+          wordBuf.print(byteToBin(keypad.array[i], 8));
+          wordBuf.print(" "); }
+        else wordBuf.print(byteToBin(keypad.array[i], bitsRem));
         bitsRem -= 8;
       }
     }
     else
-      kBuffer.print(byteToBin(keypad.array[0], bitsRem));
+      wordBuf.print(byteToBin(keypad.array[0], bitsRem));
 
-    return kBuffer.getBuffer();           // return the pointer
+    return wordBuf.getBuffer();           // return the pointer
   }
 
 const char* DSC::get_pnlArray(void)
@@ -555,26 +562,26 @@ const char* DSC::get_pnlArray(void)
     if (!panel.cmd) return NULL;          // return failure
     // Formats the panel word array into bytes in the form:
     // 8 1 8 8 8 8 8 etc, and returns a pointer to the buffer 
-    pBuffer.clear();
-    pBuffer.print("[Panel]  ");
+    wordBuf.clear();
+    wordBuf.print("[Panel]  ");
 
     if (panel.arrayLen > 8) {
-      pBuffer.print(panel.array[0]);
-      pBuffer.print(" ");
-      pBuffer.print(panel.array[1]);
-      pBuffer.print(" ");
+      wordBuf.print(panel.array[0]);
+      wordBuf.print(" ");
+      wordBuf.print(panel.array[1]);
+      wordBuf.print(" ");
       int grps = (panel.arrayLen - 2) / 8;
       for(int i=0;i<grps;i++) {
-        pBuffer.print(panel.array[i + 2]);
-        if (i<(grps-1)) pBuffer.print(" ");
+        wordBuf.print(panel.array[i + 2]);
+        if (i<(grps-1)) wordBuf.print(" ");
       }
     }
     else
-      pBuffer.print(panel.array[0]);
+      wordBuf.print(panel.array[0]);
 
-    if (pnlChkSum()) pBuffer.print(" (OK)");
+    if (pnlChkSum()) wordBuf.print(" (OK)");
 
-    return pBuffer.getBuffer();           // return the pointer
+    return wordBuf.getBuffer();           // return the pointer
   }
 
 const char* DSC::get_kpdArray(void)
@@ -582,73 +589,74 @@ const char* DSC::get_kpdArray(void)
     if (!keypad.cmd) return NULL;         // return failure
     // Formats the keypad word array into bytes in the form:
     // 8 8 8 8 8 8 etc, and returns a pointer to the buffer 
-    kBuffer.clear();
-    kBuffer.print("[Keypad] ");
+    wordBuf.clear();
+    wordBuf.print("[Keypad] ");
     
     if (keypad.arrayLen > 8) {
       int grps = keypad.arrayLen / 8;
       for(int i=0;i<grps;i++) {
-        kBuffer.print(keypad.array[i]);
-        if (i<(grps-1)) kBuffer.print(" ");
+        wordBuf.print(keypad.array[i]);
+        if (i<(grps-1)) wordBuf.print(" ");
       }
     }
     else
-      kBuffer.print(keypad.array[0]);
+      wordBuf.print(keypad.array[0]);
 
-    return kBuffer.getBuffer();           // return the pointer
+    return wordBuf.getBuffer();           // return the pointer
   }
 
 const char* DSC::get_pnlRaw(void)
   {
     if (!panel.cmd) return NULL;          // return failure
     // Puts the raw binary word into a buffer and returns a pointer to the buffer
-    pBuffer.clear();
-    pBuffer.print("[Panel]  ");
+    wordBuf.clear();
+    wordBuf.print("[Panel]  ");
     int bitsRem = panel.arrayLen;
     
     if (panel.arrayLen > 8) {
-      pBuffer.print(byteToBin(panel.array[0], 8)); bitsRem -= 8;
-      pBuffer.print(panel.array[1]); bitsRem -= 1;
+      wordBuf.print(byteToBin(panel.array[0], 8)); bitsRem -= 8;
+      wordBuf.print(panel.array[1]); bitsRem -= 1;
       int grps = (panel.arrayLen - 2) / 8;
       for(int i=0;i<grps;i++) {
-        if (bitsRem > 7) pBuffer.print(byteToBin(panel.array[i + 2], 8)); 
-        else pBuffer.print(byteToBin(panel.array[i + 2], bitsRem));
+        if (bitsRem > 7) wordBuf.print(byteToBin(panel.array[i + 2], 8)); 
+        else wordBuf.print(byteToBin(panel.array[i + 2], bitsRem));
         bitsRem -= 8;
       }
     }
     else
-      pBuffer.print(byteToBin(panel.array[0], bitsRem));
+      wordBuf.print(byteToBin(panel.array[0], bitsRem));
 
-    if (pnlChkSum()) pBuffer.print(" (OK)");
+    if (pnlChkSum()) wordBuf.print(" (OK)");
 
-    return pBuffer.getBuffer();           // return the pointer
+    return wordBuf.getBuffer();           // return the pointer
   }
 
 const char* DSC::get_kpdRaw(void)
   {
     if (!keypad.cmd) return NULL;         // return failure
     // Puts the raw binary word into a buffer and returns a pointer to the buffer
-    kBuffer.clear();
-    kBuffer.print("[Keypad] ");
+    wordBuf.clear();
+    wordBuf.print("[Keypad] ");
     int bitsRem = keypad.arrayLen;
     
     if (keypad.arrayLen > 8) {
       int grps = keypad.arrayLen / 8;
       for(int i=0;i<grps;i++) {
-        if (bitsRem > 7) kBuffer.print(byteToBin(keypad.array[i], 8));
-        else kBuffer.print(byteToBin(keypad.array[i], bitsRem));
+        if (bitsRem > 7) wordBuf.print(byteToBin(keypad.array[i], 8));
+        else wordBuf.print(byteToBin(keypad.array[i], bitsRem));
         bitsRem -= 8;
       }
     }
     else
-      kBuffer.print(byteToBin(keypad.array[0], bitsRem));
+      wordBuf.print(byteToBin(keypad.array[0], bitsRem));
 
-    return kBuffer.getBuffer();           // return the pointer
+    return wordBuf.getBuffer();           // return the pointer
   }
 
 int DSC::pnlChkSum(void)
   {
-    // Sums all but the last full byte (minus padding) and compares to last byte
+    // Sums all but the last full byte (minus padding) and compares 
+    // the remainder (modulo) to last byte
     // returns 0 if not valid, and the checksum if it's valid
     int cSum = 0;
     if (panel.arrayLen >= 17) {
@@ -694,7 +702,7 @@ bool DSC::send_key(byte aa, byte bb, byte cc, byte dd)
     if (!keysend.ready) return 0;         // return failure
     if (aa == 0 && bb == 0 && cc == 0 && dd == 0) return 0;
     
-    //sendBuffer.clear();                   // clear the send buffer
+    sendBuf.clear();                      // clear the send buffer
     
     keysend.array[0] = aa;
     keysend.array[1] = bb;
@@ -743,6 +751,7 @@ unsigned int DSC::byteToInt(byte* dataArr, int offset, int dataLen, bool padding
     }
     
     // Convert the byte, and the one following, to 16 binary digits
+    //   - needs both bytes in case the data spans more than one byte
     String bothBytes = byteToBin(dataArr[byteNum], 8) + byteToBin(dataArr[byteNum + 1], 8);
     int iBuf = 0;
     for(int j=0;j<dataLen;j++) {
@@ -752,6 +761,7 @@ unsigned int DSC::byteToInt(byte* dataArr, int offset, int dataLen, bool padding
     return iBuf;
   }
 
+/*
 const char* DSC::binToChar(String &dataStr, int offset, int endData)
   {   
     tempByte.clear();
@@ -762,6 +772,7 @@ const char* DSC::binToChar(String &dataStr, int offset, int endData)
     }
     return tempByte.getBuffer();
   }
+*/
 
 const String DSC::byteToBin(byte b, byte digits)
   {
